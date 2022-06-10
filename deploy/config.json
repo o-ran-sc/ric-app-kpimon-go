@@ -1,0 +1,47 @@
+{
+  "xapp_name": "xappkpimon",
+  "version": "1.0.0",
+  "containers": [
+    {
+      "name": "xappkpimon",
+      "image": {
+        "registry": "example.com",
+        "name": "5gvietnam/kpimon",
+        "tag": "1.0.0"
+      }
+    }
+  ],
+  "messaging": {
+    "ports": [
+      {
+        "name": "http",
+        "container": "xappkpimon",
+        "port": 8080,
+        "description": "http service"
+      },
+      {
+        "name": "rmr-data",
+        "container": "xappkpimon",
+        "port": 4560,
+        "rxMessages": ["RIC_SUB_RESP", "RIC_INDICATION"],
+        "txMessages": ["RIC_SUB_REQ"],
+        "policies": [],
+        "description": "rmr receive data port for xappkpimon"
+      },
+      {
+        "name": "rmr-route",
+        "container": "xappkpimon",
+        "port": 4561,
+        "description": "rmr route port for xappkpimon"
+      }
+    ]
+  },
+  "rmr": {
+    "protPort": "tcp:4560",
+    "maxSize": 2072,
+    "numWorkers": 1,
+    "rxMessages": ["RIC_SUB_RESP", "RIC_INDICATION"],
+    "txMessages": ["RIC_SUB_REQ"],
+    "policies": []
+  }
+}
