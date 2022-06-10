@@ -16,6 +16,23 @@
       "message": "Code check in done for KPIMON-GO version",
       "revId": "f1de76ab0ed6223d0c60298485d039ed891216c8",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "952d4cc1_2738f074",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000050
+      },
+      "writtenOn": "2022-06-10T14:25:09Z",
+      "side": 1,
+      "message": "Can you utilize ricplt/libe2ap as a library rather than including all the E2 AP generated files?",
+      "revId": "f1de76ab0ed6223d0c60298485d039ed891216c8",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
