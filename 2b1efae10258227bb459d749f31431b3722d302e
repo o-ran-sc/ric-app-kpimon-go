@@ -16,6 +16,23 @@
       "message": "Hi,\n\nI have removed .o files from the repo.\n\nRegards,\nAmit",
       "revId": "2b1efae10258227bb459d749f31431b3722d302e",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "882b89ad_bfd42e6f",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 3
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000475
+      },
+      "writtenOn": "2022-06-16T05:42:03Z",
+      "side": 1,
+      "message": "I think *.deb file should be avoided from repository. \n\nhttps://wiki.o-ran-sc.org/display/ORAN/Resolving+Identified+License+Problems#ResolvingIdentifiedLicenseProblems-Binaryfiles",
+      "revId": "2b1efae10258227bb459d749f31431b3722d302e",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
