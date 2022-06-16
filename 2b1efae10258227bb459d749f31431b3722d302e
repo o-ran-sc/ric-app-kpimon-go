@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "f6ad8204_b5617df2",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 3
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001181
+      },
+      "writtenOn": "2022-06-16T05:31:13Z",
+      "side": 1,
+      "message": "Hi,\n\nI have removed .o files from the repo.\n\nRegards,\nAmit",
+      "revId": "2b1efae10258227bb459d749f31431b3722d302e",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    }
+  ]
+}

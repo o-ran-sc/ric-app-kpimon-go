@@ -50,6 +50,24 @@
       "message": "Object file (*.o) should not be committed as code. ",
       "revId": "f1de76ab0ed6223d0c60298485d039ed891216c8",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "e3304796_83bbcfd7",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001181
+      },
+      "writtenOn": "2022-06-16T05:31:13Z",
+      "side": 1,
+      "message": "Hi Matti,\n\nFor this release can we use the same and later I will try to use the libe2ap. Will that work?",
+      "parentUuid": "952d4cc1_2738f074",
+      "revId": "f1de76ab0ed6223d0c60298485d039ed891216c8",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
