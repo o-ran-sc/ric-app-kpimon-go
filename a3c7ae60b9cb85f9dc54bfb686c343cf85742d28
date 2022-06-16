@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "8f2e119e_070df601",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 4
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001181
+      },
+      "writtenOn": "2022-06-16T06:25:55Z",
+      "side": 1,
+      "message": "Hi,\n\nRemoved deb files from repo\n\nRegards,\nAmit",
+      "revId": "a3c7ae60b9cb85f9dc54bfb686c343cf85742d28",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    }
+  ]
+}
