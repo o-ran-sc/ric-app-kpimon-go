@@ -16,6 +16,23 @@
       "message": "Hi,\n\nRemoved deb files from repo\n\nRegards,\nAmit",
       "revId": "a3c7ae60b9cb85f9dc54bfb686c343cf85742d28",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "524228ba_90115d63",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 4
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001181
+      },
+      "writtenOn": "2022-06-20T08:00:27Z",
+      "side": 1,
+      "message": "Hi,\n\nAny action required from my side on this,\n\nregards,\nAmit",
+      "revId": "a3c7ae60b9cb85f9dc54bfb686c343cf85742d28",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
