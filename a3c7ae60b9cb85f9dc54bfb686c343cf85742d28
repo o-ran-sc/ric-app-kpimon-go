@@ -1,0 +1,9 @@
+Code-Review+1: subhash kumar singh <subh.singh@samsung.com>
+Code-Review+1: Matti Hiltunen <hiltunen@att.com>
+Code-Review+2: Amit Srivastava <amitsriv@hcl.com>
+Verified+1: Amit Srivastava <amitsriv@hcl.com>
+Submitted-by: Amit Srivastava <amitsriv@hcl.com>
+Submitted-at: Fri, 15 Jul 2022 07:31:07 +0000
+Reviewed-on: https://gerrit.o-ran-sc.org/r/c/ric-app/kpimon-go/+/8537
+Project: ric-app/kpimon-go
+Branch: refs/heads/master
