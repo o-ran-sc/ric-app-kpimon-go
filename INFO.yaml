@@ -37,6 +37,10 @@ committers:
       email: 'amitsriv@hcl.com'
       company: 'HCL'
       id: 'amit.sarnath'
+    - name: "Sandeep Kumar"
+      email: 'kumar.sandeep3@hcl.com'
+      company: 'HCL'
+      id: 'sandeepindia'
 tsc:
     # yamllint disable rule:line-length
     approval: 'https://wiki.o-ran-sc.org/pages/viewpage.action?pageId=47748899'
