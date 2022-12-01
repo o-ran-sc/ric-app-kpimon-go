@@ -1,4 +1,14 @@
 package control
+/*
+#include <e2sm/wrapper.h>
+#cgo LDFLAGS: -le2smwrapper -lm
+#cgo CFLAGS: -I/usr/local/include/e2sm
+*/
+import "C"
+
+import (
+	"unsafe"
+)
 
 import (
 	"context"
@@ -6,7 +16,14 @@ import (
 	"log"
 	"net/http"
 	"time"
-
+//	"bytes"
+//	"encoding/binary"
+	"strconv"
+	"encoding/base64"
+	"strings"
+	"fmt"
+	"reflect"
+	"errors"
 	"gerrit.o-ran-sc.org/r/ric-plt/xapp-frame/pkg/clientmodel"
 	"gerrit.o-ran-sc.org/r/ric-plt/xapp-frame/pkg/xapp"
 	influxdb2 "github.com/influxdata/influxdb-client-go"
@@ -23,12 +40,12 @@ var (
 	actionType           = "report"
 	actionId             = int64(1)
 	seqId                = int64(1)
-	funcId               = int64(0)
+	funcId               = int64(2)
 	hPort                = int64(8080)
 	rPort                = int64(4560)
-	clientEndpoint       = clientmodel.SubscriptionParamsClientEndpoint{Host: "service-ricxapp-xappkpimon-http.ricxapp", HTTPPort: &hPort, RMRPort: &rPort}
+	clientEndpoint       = clientmodel.SubscriptionParamsClientEndpoint{Host: "service-ricxapp-kpimon-go-http.ricxapp", HTTPPort: &hPort, RMRPort: &rPort}
 )
-
+var Glob_cell = make(map[string]bool)
 func (c Control) Consume(msg *xapp.RMRParams) error {
 	id := xapp.Rmr.GetRicMessageName(msg.Mtype)
 	xapp.Logger.Info(
@@ -46,6 +63,7 @@ func (c Control) Consume(msg *xapp.RMRParams) error {
 func NewControl() Control {
 	xapp.Logger.Info("In new control\n")
 	create_db()
+	xapp.Logger.Info("returning control\n")
 	return Control{
 		make(chan *xapp.RMRParams),
 		influxdb2.NewClient("http://ricplt-influxdb.ricplt:8086", "client"),
@@ -53,10 +71,12 @@ func NewControl() Control {
 }
 func create_db() {
 	//Create a database named kpimon in influxDB
+	xapp.Logger.Info("In create_db\n")
 	_, err := http.Post("http://ricplt-influxdb.ricplt:8086/query?q=create%20database%20kpimon", "", nil)
 	if err != nil {
 		xapp.Logger.Error("Create database failed!")
 	}
+	xapp.Logger.Info("exiting create_db\n")
 }
 
 func (c Control) getEnbList() ([]*xapp.RNIBNbIdentity, error) {
@@ -101,10 +121,193 @@ func (c *Control) getnbList() []*xapp.RNIBNbIdentity {
 	return nbs
 }
 
+func cellid_to_list_of_int(str string) []int64 {
+	l := len(str)
+	var ans []int64
+	for i := 0; i < l; i += 2 {
+		output, err := strconv.ParseInt(str[i:i+2], 16, 64)
+		if err != nil {
+			fmt.Println(err)
+			return ans
+		}
+		ans = append(ans, output)
+	}
+	return ans
+}
+func plmnid_to_list_of_int(str string) []int64 {
+	l := len(str)
+	var ans []int64
+	for i := 0; i < l; i += 2 {
+		output, err := strconv.ParseInt(str[i:i+2], 16, 64)
+		if err != nil {
+			fmt.Println(err)
+			return ans
+		}
+		ans = append(ans, output)
+	}
+	return ans
+}
+func encode_action_format1(plmn string, cellid string) clientmodel.ActionDefinition {
+	lol1 := plmnid_to_list_of_int(plmn)
+	lol2 := cellid_to_list_of_int(cellid)
+	var format1 []int64
+	//format1=[]int64{0,1,1,8,0,19,32,0,3,1,32,0,0,32,0,4,1,32,0,0,32,0,78,1,32,0,0,32,0,79,1,32,0,0,32,0,8,1,32,0,0,32,0,7,1,32,0,0,32,0,11,1,32,0,0,32,0,12,1,32,0,0,32,0,80,1,32,0,0,32,0,81,1,32,0,0,32,0,13,1,32,0,0,32,0,14,1,32,0,0,32,0,40,1,32,0,0,32,0,41,1,32,0,0,32,0,42,1,32,0,0,32,0,82,1,32,0,0,32,0,83,1,32,0,0,32,0,84,1,32,0,0,32,0,85,1,32,0,0,32,0,86,1,32,0,0,64,39,15,0,0,31,1,18,52,92,0,16}
+	//0(nr) 1(eutra)  0,31,1(plmn)18,52,92,0,16(cellid)
+
+	//for simulation-by measID (not supported in viavi 1.4)
+	//format1=[]int64{0,1,1,8,0,22,32,0,3,1,32,0,0,32,0,4,1,32,0,0,32,0,78,1,32,0,0,32,0,79,1,32,0,0,32,0,80,1,32,0,0,32,0,81,1,32,0,0,32,0,8,1,32,0,0,32,0,7,1,32,0,0,32,0,11,1,32,0,0,32,0,12,1,32,0,0,32,0,82,1,32,0,0,32,0,83,1,32,0,0,32,0,13,1,32,0,0,32,0,14,1,32,0,0,32,0,40,1,32,0,0,32,0,41,1,32,0,0,32,0,42,1,32,0,0,32,0,84,1,32,0,0,32,0,85,1,32,0,0,32,0,86,1,32,0,0,32,0,87,1,32,0,0,32,0,88,1,32,0,0,32,0,89,1,32,0,0,64,39,15,0}//assuming nr cells
+
+	//for simulation-by measName(supported in Viavi 1.4)
+	format1=[]int64{0,1,1,8,0,22,0,160,68,82,66,46,85,69,84,104,112,68,108,1,32,0,0,0,160,68,82,66,46,85,69,84,104,112,85,108,1,32,0,0,0,176,80,69,69,46,65,118,103,80,111,119,101,114,1,32,0,0,0,144,80,69,69,46,69,110,101,114,103,121,1,32,0,0,1,144,81,111,115,70,108,111,119,46,84,111,116,80,100,99,112,80,100,117,86,111,108,117,109,101,68,108,1,32,0,0,1,144,81,111,115,70,108,111,119,46,84,111,116,80,100,99,112,80,100,117,86,111,108,117,109,101,85,108,1,32,0,0,0,160,82,82,67,46,67,111,110,110,77,97,120,1,32,0,0,0,176,82,82,67,46,67,111,110,110,77,101,97,110,1,32,0,0,0,208,82,82,85,46,80,114,98,65,118,97,105,108,68,108,1,32,0,0,0,208,82,82,85,46,80,114,98,65,118,97,105,108,85,108,1,32,0,0,0,176,82,82,85,46,80,114,98,84,111,116,68,108,1,32,0,0,0,176,82,82,85,46,80,114,98,84,111,116,85,108,1,32,0,0,0,192,82,82,85,46,80,114,98,85,115,101,100,68,108,1,32,0,0,0,192,82,82,85,46,80,114,98,85,115,101,100,85,108,1,32,0,0,0,160,86,105,97,118,105,46,71,101,111,46,120,1,32,0,0,0,160,86,105,97,118,105,46,71,101,111,46,121,1,32,0,0,0,160,86,105,97,118,105,46,71,101,111,46,122,1,32,0,0,0,192,86,105,97,118,105,46,71,110,98,68,117,73,100,1,32,0,0,0,160,86,105,97,118,105,46,78,114,67,103,105,1,32,0,0,0,160,86,105,97,118,105,46,78,114,80,99,105,1,32,0,0,1,96,86,105,97,118,105,46,82,97,100,105,111,46,97,110,116,101,110,110,97,84,121,112,101,1,32,0,0,1,32,86,105,97,118,105,46,82,97,100,105,111,46,97,122,105,109,117,116,104,1,32,0,0,1,0,86,105,97,118,105,46,82,97,100,105,111,46,112,111,119,101,114,1,32,0,0,64,39,15,0}//assuming nr cells
+	//for e2test
+	 // format1=[]int64{0,1,1,8,0,42,32,0,0,1,32,0,0,32,0,1,1,32,0,0,32,0,2,1,32,0,0,32,0,3,1,32,0,0,32,0,4,1,32,0,0,32,0,5,1,32,0,0,32,0,6,1,32,0,0,32,0,7,1,32,0,0,32,0,8,1,32,0,0,32,0,9,1,32,0,0,32,0,10,1,32,0,0,32,0,11,1,32,0,0,32,0,12,1,32,0,0,32,0,13,1,32,0,0,32,0,14,1,32,0,0,32,0,15,1,32,0,0,32,0,16,1,32,0,0,32,0,17,1,32,0,0,32,0,18,1,32,0,0,32,0,19,1,32,0,0,32,0,20,1,32,0,0,32,0,21,1,32,0,0,32,0,22,1,32,0,0,32,0,23,1,32,0,0,32,0,24,1,32,0,0,32,0,25,1,32,0,0,32,0,26,1,32,0,0,32,0,27,1,32,0,0,32,0,28,1,32,0,0,32,0,29,1,32,0,0,32,0,30,1,32,0,0,32,0,31,1,32,0,0,32,0,32,1,32,0,0,32,0,33,1,32,0,0,32,0,34,1,32,0,0,32,0,35,1,32,0,0,32,0,36,1,32,0,0,32,0,37,1,32,0,0,32,0,38,1,32,0,0,32,0,39,1,32,0,0,32,0,40,1,32,0,0,32,0,41,1,32,0,0,32,0,42,1,32,0,0,64,39,15,0}
+	format1 = append(format1, lol1...) //appending plmn
+        format1 = append(format1, lol2...) //appending cellid
+	return format1
+}
+
+func encode_action_format2() clientmodel.ActionDefinition{
+	var format2 []int64
+	format2 = []int64{0, 1, 0, 0, 0, 20, 0, 160, 68, 82, 66, 46, 85, 69, 84, 104, 112, 68, 108, 1, 0, 0, 0, 1, 64, 68, 82, 66, 46, 85, 69, 84, 104, 112, 85, 108, 1, 0, 0, 0, 1, 0, 71, 78, 66, 45, 68, 85, 45, 73, 68, 1, 0, 0, 0, 0, 160, 78, 82, 45, 67, 71, 73, 1, 0, 0, 0, 0, 160, 78, 82, 45, 80, 67, 73, 1, 0, 0, 0, 2, 192, 81, 111, 115, 70, 108, 111, 119, 46, 80, 100, 99, 112, 80, 100, 117, 86, 111, 108, 117, 109, 101, 68, 108, 1, 0, 0, 0, 2, 192, 81, 111, 115, 70, 108, 111, 119, 46, 80, 100, 99, 112, 80, 100, 117, 86, 111, 108, 117, 109, 101, 85, 108, 1, 0, 0, 0, 1, 64, 82, 82, 67, 46, 67, 111, 110, 110, 77, 97, 120, 1, 0, 0, 0, 1, 96, 82, 82, 67, 46, 67, 111, 110, 110, 77, 101, 97, 110, 1, 0, 0, 0, 1, 160, 82, 82, 85, 46, 80, 114, 98, 65, 118, 97, 105, 108, 68, 108, 1, 0, 0, 0, 1, 160, 82, 82, 85, 46, 80, 114, 98, 65, 118, 97, 105, 108, 85, 108, 1, 0, 0, 0, 1, 32, 82, 82, 85, 46, 80, 114, 98, 84, 111, 116, 1, 0, 0, 0, 1, 96, 82, 82, 85, 46, 80, 114, 98, 84, 111, 116, 68, 108, 1, 0, 0, 0, 1, 96, 82, 82, 85, 46, 80, 114, 98, 84, 111, 116, 85, 108, 1, 0, 0, 0, 1, 128, 82, 82, 85, 46, 80, 114, 98, 85, 115, 101, 100, 68, 108, 1, 0, 0, 0, 1, 128, 82, 82, 85, 46, 80, 114, 98, 85, 115, 101, 100, 85, 108, 1, 0, 0, 0, 1, 64, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 120, 1, 0, 0, 0, 1, 64, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 121, 1, 0, 0, 0, 1, 64, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 122, 1, 0, 0, 0, 2, 0, 86, 105, 97, 118, 105, 46, 82, 97, 100, 105, 111, 46, 112, 111, 119, 101, 114, 1, 0, 0, 0, 2, 64, 86, 105, 97, 118, 105, 46, 82, 97, 100, 105, 111, 46, 115, 101, 99, 116, 111, 114, 115, 1, 0, 0, 0, 0, 0}
+	//encode the variable part and append it to our array.
+	format2 = append(format2, 89) //appending variable part if necessory
+	return format2
+}
+
+func encode_action_format3() clientmodel.ActionDefinition {
+	var format3 []int64
+
+	//for simulation-by measId(not supported in Viavi 1.4)
+	//format3=[]int64{0,1,3,64,0,29,32,0,90,0,0,16,0,0,16,0,91,0,0,16,0,0,16,0,3,0,0,16,0,0,16,0,4,0,0,16,0,0,16,0,80,0,0,16,0,0,16,0,13,0,0,16,0,0,16,0,14,0,0,16,0,0,16,0,92,0,0,16,0,0,16,0,93,0,0,16,0,0,16,0,44,0,0,16,0,0,16,0,40,0,0,16,0,0,16,0,41,0,0,16,0,0,16,0,42,0,0,16,0,0,16,0,94,0,0,16,0,0,16,0,95,0,0,16,0,0,16,0,96,0,0,16,0,0,16,0,97,0,0,16,0,0,16,0,45,0,0,16,0,0,16,0,98,0,0,16,0,0,16,0,99,0,0,16,0,0,16,0,100,0,0,16,0,0,16,0,101,0,0,16,0,0,16,0,102,0,0,16,0,0,16,0,103,0,0,16,0,0,16,0,104,0,0,16,0,0,16,0,43,0,0,16,0,0,16,0,105,0,0,16,0,0,16,0,106,0,0,16,0,0,16,0,107,0,0,16,0,0,16,0,108,0,0,16,0,0,32,39,15}
+	//variable part is not presetnt in action def format 3
+
+	//for simulation-by measName(supported in Viavi 1.4)
+	format3=[]int64{0,1,3,64,0,29,0,160,68,82,66,46,85,69,67,113,105,68,108,0,0,16,0,0,0,80,68,82,66,46,85,69,67,113,105,85,108,0,0,16,0,0,0,80,68,82,66,46,85,69,84,104,112,68,108,0,0,16,0,0,0,80,68,82,66,46,85,69,84,104,112,85,108,0,0,16,0,0,0,200,81,111,115,70,108,111,119,46,84,111,116,80,100,99,112,80,100,117,86,111,108,117,109,101,68,108,0,0,16,0,0,0,96,82,82,85,46,80,114,98,85,115,101,100,68,108,0,0,16,0,0,0,96,82,82,85,46,80,114,98,85,115,101,100,85,108,0,0,16,0,0,0,80,84,66,46,84,111,116,78,98,114,68,108,0,0,16,0,0,0,80,84,66,46,84,111,116,78,98,114,85,108,0,0,16,0,0,0,96,86,105,97,118,105,46,67,101,108,108,46,105,100,0,0,16,0,0,0,80,86,105,97,118,105,46,71,101,111,46,120,0,0,16,0,0,0,80,86,105,97,118,105,46,71,101,111,46,121,0,0,16,0,0,0,80,86,105,97,118,105,46,71,101,111,46,122,0,0,16,0,0,0,96,86,105,97,118,105,46,81,111,83,46,53,113,105,0,0,16,0,0,0,120,86,105,97,118,105,46,81,111,83,46,67,101,108,108,73,100,0,0,16,0,0,0,112,86,105,97,118,105,46,81,111,83,46,68,114,98,73,100,0,0,16,0,0,0,104,86,105,97,118,105,46,81,111,83,46,71,102,98,114,0,0,16,0,0,0,104,86,105,97,118,105,46,83,108,105,99,101,46,105,100,0,0,16,0,0,0,112,86,105,97,118,105,46,85,69,46,66,101,97,109,73,100,0,0,16,0,0,0,128,86,105,97,118,105,46,85,69,46,70,114,97,109,101,67,110,116,0,0,16,0,0,0,112,86,105,97,118,105,46,85,69,46,82,115,83,105,110,114,0,0,16,0,0,0,96,86,105,97,118,105,46,85,69,46,82,115,114,112,0,0,16,0,0,0,96,86,105,97,118,105,46,85,69,46,82,115,114,113,0,0,16,0,0,0,112,86,105,97,118,105,46,85,69,46,84,99,82,110,116,105,0,0,16,0,0,0,136,86,105,97,118,105,46,85,69,46,97,110,111,109,97,108,105,101,115,0,0,16,0,0,0,80,86,105,97,118,105,46,85,69,46,105,100,0,0,16,0,0,0,184,86,105,97,118,105,46,85,69,46,115,101,114,118,105,110,103,68,105,115,116,97,110,99,101,0,0,16,0,0,0,104,86,105,97,118,105,46,85,69,46,115,112,101,101,100,0,0,16,0,0,0,208,86,105,97,118,105,46,85,69,46,116,97,114,103,101,116,84,104,114,111,117,103,104,112,117,116,68,108,0,0,16,0,0,0,208,86,105,97,118,105,46,85,69,46,116,97,114,103,101,116,84,104,114,111,117,103,104,112,117,116,85,108,0,0,16,0,0,32,39,15}
+
+	//variable part is not presetnt in action def format 3
+
+	//for e2test
+	//format3=[]int64{0,1,3,64,0,62,32,0,43,0,0,16,0,0,16,0,44,0,0,16,0,0,16,0,45,0,0,16,0,0,16,0,3,0,0,16,0,0,16,0,4,0,0,16,0,0,16,0,13,0,0,16,0,0,16,0,14,0,0,16,0,0,16,0,46,0,0,16,0,0,16,0,47,0,0,16,0,0,16,0,48,0,0,16,0,0,16,0,49,0,0,16,0,0,16,0,50,0,0,16,0,0,16,0,51,0,0,16,0,0,16,0,52,0,0,16,0,0,16,0,53,0,0,16,0,0,16,0,54,0,0,16,0,0,16,0,55,0,0,16,0,0,16,0,56,0,0,16,0,0,16,0,57,0,0,16,0,0,16,0,58,0,0,16,0,0,16,0,59,0,0,16,0,0,16,0,60,0,0,16,0,0,16,0,61,0,0,16,0,0,16,0,62,0,0,16,0,0,16,0,63,0,0,16,0,0,16,0,64,0,0,16,0,0,16,0,65,0,0,16,0,0,16,0,66,0,0,16,0,0,16,0,67,0,0,16,0,0,16,0,68,0,0,16,0,0,16,0,69,0,0,16,0,0,16,0,70,0,0,16,0,0,16,0,71,0,0,16,0,0,16,0,72,0,0,16,0,0,16,0,73,0,0,16,0,0,16,0,74,0,0,16,0,0,16,0,75,0,0,16,0,0,16,0,76,0,0,16,0,0,16,0,77,0,0,16,0,0,16,0,27,0,0,16,0,0,16,0,19,0,0,16,0,0,16,0,26,0,0,16,0,0,16,0,39,0,0,16,0,0,16,0,15,0,0,16,0,0,16,0,16,0,0,16,0,0,16,0,17,0,0,16,0,0,16,0,18,0,0,16,0,0,16,0,20,0,0,16,0,0,16,0,21,0,0,16,0,0,16,0,22,0,0,16,0,0,16,0,23,0,0,16,0,0,16,0,28,0,0,16,0,0,16,0,29,0,0,16,0,0,16,0,30,0,0,16,0,0,16,0,31,0,0,16,0,0,16,0,32,0,0,16,0,0,16,0,33,0,0,16,0,0,16,0,34,0,0,16,0,0,16,0,35,0,0,16,0,0,16,0,36,0,0,16,0,0,16,0,40,0,0,16,0,0,16,0,41,0,0,16,0,0,16,0,42,0,0,16,0,0,32,39,15}
+	//variable part is not presetnt in action def format 3
+	return format3
+}
+func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
+	var l clientmodel.ActionsToBeSetup
+	link:="http://service-ricplt-e2mgr-http.ricplt.svc.cluster.local:3800/v1/nodeb/"
+	link=link+meid
+	tmpr,err := http.Get(link)
+	if err != nil {
+      		log.Fatalln(err)
+      		return l
+	}
+	defer tmpr.Body.Close()
+	var resp E2mgrResponse
+	
+	err=json.NewDecoder(tmpr.Body).Decode(&resp)
+	if err != nil {
+                log.Fatalln(err)
+                return l
+        }
+
+	
+	counter := 0
+	for i := 0; i < len(resp.Gnb.NodeConfigs); i++ {
+		if resp.Gnb.NodeConfigs[i].E2nodeComponentInterfaceType == "f1" {
+			counter = i
+			break
+		}
+	}
+	tm := resp.Gnb.NodeConfigs[counter].E2nodeComponentRequestPart
+	base64Text := make([]byte, base64.StdEncoding.DecodedLen(len(tm)))
+	nl, _ := base64.StdEncoding.Decode(base64Text, []byte(tm))
+	message := string(base64Text[:nl])
+	
+	counter = 0
+	for i := 0; i < len(meid); i++ {
+		if meid[i] == '_' {
+			counter++
+		}
+		if counter == 3 {
+			counter = i + 1
+			break
+		}
+	}
+	
+	ans := strings.ToUpper(meid[counter:len(meid)])
+	l1 := int64(len(message))
+	l2 := int64(len(ans))
+	var cells []string
+	for i := int64(0); i <= l1-l2; i++ {
+		if strings.Contains(message[i:i+l2], ans) {
+			Glob_cell[message[i:i+10]]=true
+			cells = append(cells, message[i:i+10])
+			fmt.Println(message[i : i+10])
+		}
+	}
+
+	var n int64 = 1
+	//var ue int64 = 1 //get no of ue connected to du(if required)
+
+	//for action def 1
+	for n <= int64(len(cells)) {
+		var tmp int64 = n
+		var lol *int64 = &tmp
+		s := clientmodel.ActionToBeSetup{
+			ActionID:         lol,
+			ActionType:       &actionType,
+			ActionDefinition: encode_action_format1(resp.GlobalNbId.PlmnId, cells[n-1]),
+			SubsequentAction:  &clientmodel.SubsequentAction{
+				SubsequentActionType: &subsequentActionType,
+				TimeToWait:           &timeToWait,
+			},
+		}
+		l = append(l, &s)
+
+		n = n + 1
+	}
+	var tmp_act_id int64 = n
+	/*
+	n = 1
+	// for action def 2
+	for n <= ue {
+		var tmp int64 = tmp_act_id
+		var lol *int64 = &tmp
+		s := clientmodel.ActionToBeSetup{
+			ActionID:         lol,
+			ActionType:       &actionType,
+			ActionDefinition: encode_action_format2(),
+			SubsequentAction:  &clientmodel.SubsequentAction{
+				SubsequentActionType: &subsequentActionType,
+				TimeToWait:           &timeToWait,
+			},
+		}
+		l = append(l, &s)
+		tmp_act_id = tmp_act_id + 1
+		n = n + 1
+	}
+	*/
+
+	//for action def 3
+	var tmp int64 = tmp_act_id
+	var lol *int64 = &tmp
+	s := clientmodel.ActionToBeSetup{
+		ActionID:         lol,
+		ActionType:       &actionType,
+		ActionDefinition: encode_action_format3(),
+		SubsequentAction:  &clientmodel.SubsequentAction{
+			SubsequentActionType: &subsequentActionType,
+			TimeToWait:           &timeToWait,
+		},
+	}
+	l = append(l, &s)
+
+	return l
+
+}
 func (c Control) sendSubscription(meid string) {
 	//Create Subscription message and send it to RIC platform
 	xapp.Logger.Info("Sending subscription request for MEID: %v", meid)
-
+/*
 	subscritionParams := clientmodel.SubscriptionParams{
 		ClientEndpoint: &clientEndpoint,
 		Meid:           &meid,
@@ -112,7 +315,7 @@ func (c Control) sendSubscription(meid string) {
 		SubscriptionDetails: clientmodel.SubscriptionDetailsList{
 			&clientmodel.SubscriptionDetail{
 				EventTriggers: clientmodel.EventTriggerDefinition{
-					1234,
+					8,39,15,
 				},
 				XappEventInstanceID: &seqId,
 				ActionToBeSetupList: clientmodel.ActionsToBeSetup{
@@ -131,6 +334,23 @@ func (c Control) sendSubscription(meid string) {
 			},
 		},
 	}
+	*/
+	
+	//8,39,15, for 10000 ms reporting period
+	subscritionParams := clientmodel.SubscriptionParams{
+		ClientEndpoint: &clientEndpoint,
+		Meid:           &meid,
+		RANFunctionID:  &funcId,
+		SubscriptionDetails: clientmodel.SubscriptionDetailsList{
+			&clientmodel.SubscriptionDetail{
+				EventTriggers: clientmodel.EventTriggerDefinition{
+					8,39,15,
+				},
+				XappEventInstanceID: &seqId,
+				ActionToBeSetupList: encode_actionsToBeSetup(meid),
+			},
+		},
+	}
 
 	b, err := json.MarshalIndent(subscritionParams, "", " ")
 	if err != nil {
@@ -144,6 +364,195 @@ func (c Control) sendSubscription(meid string) {
 		return
 	}
 	xapp.Logger.Info("Successfully subscription done (%s), subscriptrion id: %s", meid, *resp.SubscriptionID)
+}
+
+func Test() (err error) {
+        var e2ap *E2ap
+        //var e2sm *E2sm
+
+        //indicationMsg, err := e2ap.GetIndicationMessage(params.Payload)
+	indicationMsg, err := e2ap.GetIndicationM()
+
+        if err != nil {
+                xapp.Logger.Error("Failed to decode RIC Indication message: %v", err)
+                return
+        }
+
+        //log.Printf("RIC Indication message from {%s} received", params.Meid.RanName)
+        /*
+                indicationHdr, err := e2sm.GetIndicationHeader(indicationMsg.IndHeader)
+                if err != nil {
+                        xapp.Logger.Error("Failed to decode RIC Indication Header: %v", err)
+                        return
+                }
+        */
+
+        //Decoding message and put information into log
+        log.Printf("-----------RIC Indication Header-----------")
+	log.Printf("indicationMsg.IndHeader= %x", indicationMsg.IndHeader)
+/*	
+	buf := new(bytes.Buffer) //create my buffer
+	binary.Write(buf, binary.LittleEndian, indicationMsg.IndHeader)
+	log.Printf("binary Write buf= %x",buf )
+	b := buf.Bytes()
+	//str := buf.String()
+	//log.Printf(" buf Strin()= %s",str )
+	//cptr1:= unsafe.Pointer(C.CString(str))
+	cptr1:= unsafe.Pointer(&b[0])
+	defer C.free(cptr1)
+*/	
+        cptr1 := unsafe.Pointer(&indicationMsg.IndHeader[0])
+        decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(indicationMsg.IndHeader)))
+	//decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(str)))
+	//decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(buf.Len()))
+        if decodedHdr == nil {
+                return errors.New("e2sm wrapper is unable to get IndicationHeader due to wrong or invalid input")
+        }
+        defer C.e2sm_free_ric_indication_header(decodedHdr)
+        IndHdrType := int32(decodedHdr.indicationHeader_formats.present)
+        if IndHdrType==0{
+                log.Printf("No Indication Header present")
+        }
+        if IndHdrType==1{
+                log.Printf("Indication Header format = %d",IndHdrType)
+                indHdrFormat1_C := *(**C.E2SM_KPM_IndicationHeader_Format1_t)(unsafe.Pointer(&decodedHdr.indicationHeader_formats.choice[0]))
+                //senderName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderName))
+		senderName_C:=indHdrFormat1_C.senderName
+                var senderName []byte
+                senderName = C.GoBytes(unsafe.Pointer(senderName_C.buf), C.int(senderName_C.size))
+                log.Printf("Sender Name = %x",senderName)
+
+                //senderType_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderType))
+		senderType_C :=indHdrFormat1_C.senderType
+                //senderType []byte
+                senderType := C.GoBytes(unsafe.Pointer(senderType_C.buf), C.int(senderType_C.size))
+                log.Printf("Sender Type = %x",senderType)
+
+                //vendorName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.vendorName))
+		vendorName_C :=indHdrFormat1_C.vendorName
+                //vendorName  []byte
+                vendorName := C.GoBytes(unsafe.Pointer(vendorName_C.buf), C.int(vendorName_C.size))
+                log.Printf("Vendor Name = %x",vendorName)
+
+
+        }
+
+        /*
+                indMsg, err := e2sm.GetIndicationMessage(indicationMsg.IndMessage)
+                if err != nil {
+                        xapp.Logger.Error("Failed to decode RIC Indication Message: %v", err)
+                        return
+                }
+        */
+        log.Printf("-----------RIC Indication Message-----------")
+	log.Printf("indicationMsg.IndMessage= %x",indicationMsg.IndMessage)
+        cptr2 := unsafe.Pointer(&indicationMsg.IndMessage[0])
+        indicationmessage := C.e2sm_decode_ric_indication_message(cptr2, C.size_t(len(indicationMsg.IndMessage)))
+        if  indicationmessage == nil {
+                return errors.New("e2sm wrapper is unable to get IndicationMessage due to wrong or invalid input")
+        }
+        defer C.e2sm_free_ric_indication_message(indicationmessage)
+        IndMsgType := int32(indicationmessage.indicationMessage_formats.present)
+        if IndMsgType==1  {//parsing cell metrics
+                fmt.Printf(" parsing for cell metrics\n" )
+                indMsgFormat1_C := *(**C.E2SM_KPM_IndicationMessage_Format1_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
+                no_of_cell:=int32(indMsgFormat1_C .measData.list.count)
+		fmt.Printf(" \n No of cell = %d\n",no_of_cell )
+		//fmt.Println(no_of_cell)
+                for n := int32(0); n < no_of_cell; n++ {
+                                var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
+                                MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat1_C.measData.list.array)) + (uintptr)(int(n))*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+                                no_of_cell_metrics:=int32(MeasurementDataItem_C.measRecord.list.count)
+                                var CellM CellMetricsEntry
+                                v := reflect.ValueOf(CellM)
+				fmt.Printf(" \n No of cell metrics = %d\n",no_of_cell_metrics)
+                                values := make(map[string]interface{}, v.NumField())
+                                //assert no_of_cell_metrics == v.NumField()   they both should be equal.
+                                for i := int32(0); i < no_of_cell_metrics; i++ {
+					//fmt.Println(i)
+                                        if v.Field(int(i)).CanInterface() {
+                                                        var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+                                                        MeasurementRecordItem_C:=*(**C. MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(int(i))*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+                                                        type_var:=int(MeasurementRecordItem_C.present)
+                                                        if type_var==1{
+                                                                var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+                                                                values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
+                                                                }else if type_var==2{
+                                var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+                                values[v.Type().Field(int(i)).Name]=float64(*cast_float)
+                                                        }else{
+                                                        fmt.Printf("Wrong Data Type")
+                                                }
+
+                                                }else {
+                                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
+                                                }
+                                        }//end of inner for loop
+
+
+				fmt.Println(values)
+				fmt.Printf("Parsing Cell Metric Done")
+				//c.writeCellMetrics_db(&values)//push cellmetrics map entry to database.
+                        }//end of outer for loop
+                        //end of if IndMsgType==1 , parsing cell metrics done
+
+        }  else if IndMsgType==2  { //parsing ue metrics
+
+                fmt.Printf(" parsing for UE metrics" )
+                indMsgFormat2_C := *(**C.E2SM_KPM_IndicationMessage_Format2_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
+                no_of_ue_metrics:=int32(indMsgFormat2_C .measData.list.count)
+		fmt.Printf(" \n No of ue metrics = %d\n",no_of_ue_metrics)
+
+                var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
+                MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(0)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+
+                no_of_ue:=int32(MeasurementDataItem_C.measRecord.list.count)
+		fmt.Printf(" \n No of ue= %d\n",no_of_ue)
+                for n := int32(0); n < no_of_ue; n++ {
+                                var UeM UeMetricsEntry
+                                v := reflect.ValueOf(UeM)
+                                values := make(map[string]interface{}, v.NumField())
+                                //assert no_of_ue_metrics == v.NumField()   they both should be equal.
+                                for i := int32(0); i < no_of_ue_metrics; i++ {
+				//fmt.Println(i)
+                                if v.Field(int(i)).CanInterface() {
+
+                                        var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
+                                        MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(i)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+                                        var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+                                        MeasurementRecordItem_C:=*(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(n)*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+
+                                        type_var:=int(MeasurementRecordItem_C.present)
+                                if type_var==1{
+                                        var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+                                        values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
+                                }else if type_var==2{
+                                        var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+                                        values[v.Type().Field(int(i)).Name]=float64(*cast_float)
+
+                                        }else{
+                                        fmt.Printf("Wrong Data Type")
+                                }
+
+                        }else {
+                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
+                                }
+
+
+                                        }       //end of inner for loop
+			fmt.Println(values)
+			 fmt.Printf("Parsing UE Metric Done")
+			 //c.writeUeMetrics_db(&values)//push UEmetrics map entry to database.
+
+                        }// end of outer for loop
+        //parsing ue metrics done
+        }else{
+                fmt.Printf(" Invalid Indication message format" )
+
+        }
+
+
+        return nil
 }
 
 func (c *Control) controlLoop() {
@@ -161,735 +570,295 @@ func (c *Control) controlLoop() {
 }
 func (c *Control) handleIndication(params *xapp.RMRParams) (err error) {
 	var e2ap *E2ap
-	var e2sm *E2sm
+	//var e2sm *E2sm
 
-	//Decode message and put it into log
 	indicationMsg, err := e2ap.GetIndicationMessage(params.Payload)
 	if err != nil {
 		xapp.Logger.Error("Failed to decode RIC Indication message: %v", err)
-		log.Printf("Failed to decode RIC Indication message: %v", err)
 		return
 	}
 
 	log.Printf("RIC Indication message from {%s} received", params.Meid.RanName)
-	log.Printf("RequestID: %d", indicationMsg.RequestID)
-	log.Printf("RequestSequenceNumber: %d", indicationMsg.RequestSequenceNumber)
-	log.Printf("FunctionID: %d", indicationMsg.FuncID)
-	log.Printf("ActionID: %d", indicationMsg.ActionID)
-	log.Printf("IndicationSN: %d", indicationMsg.IndSN)
-	log.Printf("IndicationType: %d", indicationMsg.IndType)
-	log.Printf("IndicationHeader: %x", indicationMsg.IndHeader)
-	log.Printf("IndicationMessage: %x", indicationMsg.IndMessage)
-	log.Printf("CallProcessID: %x", indicationMsg.CallProcessID)
-
-	indicationHdr, err := e2sm.GetIndicationHeader(indicationMsg.IndHeader)
-	if err != nil {
-		xapp.Logger.Error("Failed to decode RIC Indication Header: %v", err)
-		log.Printf("Failed to decode RIC Indication Header: %v", err)
-		return
-	}
-
-	var cellIDHdr string
-	var plmnIDHdr string
-	var sliceIDHdr int32
-	var fiveQIHdr int64
-
-	//Decoding Ric Indication Header
-	log.Printf("-----------RIC Indication Header-----------")
-	if indicationHdr.IndHdrType == 1 {
-		log.Printf("RIC Indication Header Format: %d", indicationHdr.IndHdrType)
-		indHdrFormat1 := indicationHdr.IndHdr.(*IndicationHeaderFormat1)
-
-		log.Printf("GlobalKPMnodeIDType: %d", indHdrFormat1.GlobalKPMnodeIDType)
-
-		if indHdrFormat1.GlobalKPMnodeIDType == 1 {
-			globalKPMnodegNBID := indHdrFormat1.GlobalKPMnodeID.(*GlobalKPMnodegNBIDType)
-
-			globalgNBID := globalKPMnodegNBID.GlobalgNBID
-
-			log.Printf("PlmnID: %x", globalgNBID.PlmnID.Buf)
-			log.Printf("gNB ID Type: %d", globalgNBID.GnbIDType)
-			if globalgNBID.GnbIDType == 1 {
-				gNBID := globalgNBID.GnbID.(*GNBID)
-				log.Printf("gNB ID ID: %x, Unused: %d", gNBID.Buf, gNBID.BitsUnused)
-			}
-
-			if globalKPMnodegNBID.GnbCUUPID != nil {
-				log.Printf("gNB-CU-UP ID: %x", globalKPMnodegNBID.GnbCUUPID.Buf)
-			}
-
-			if globalKPMnodegNBID.GnbDUID != nil {
-				log.Printf("gNB-DU ID: %x", globalKPMnodegNBID.GnbDUID.Buf)
-			}
-		} else if indHdrFormat1.GlobalKPMnodeIDType == 2 {
-			globalKPMnodeengNBID := indHdrFormat1.GlobalKPMnodeID.(*GlobalKPMnodeengNBIDType)
-
-			log.Printf("PlmnID: %x", globalKPMnodeengNBID.PlmnID.Buf)
-			log.Printf("en-gNB ID Type: %d", globalKPMnodeengNBID.GnbIDType)
-			if globalKPMnodeengNBID.GnbIDType == 1 {
-				engNBID := globalKPMnodeengNBID.GnbID.(*ENGNBID)
-				log.Printf("en-gNB ID ID: %x, Unused: %d", engNBID.Buf, engNBID.BitsUnused)
-			}
-		} else if indHdrFormat1.GlobalKPMnodeIDType == 3 {
-			globalKPMnodengeNBID := indHdrFormat1.GlobalKPMnodeID.(*GlobalKPMnodengeNBIDType)
-
-			log.Printf("PlmnID: %x", globalKPMnodengeNBID.PlmnID.Buf)
-			log.Printf("ng-eNB ID Type: %d", globalKPMnodengeNBID.EnbIDType)
-			if globalKPMnodengeNBID.EnbIDType == 1 {
-				ngeNBID := globalKPMnodengeNBID.EnbID.(*NGENBID_Macro)
-				log.Printf("ng-eNB ID ID: %x, Unused: %d", ngeNBID.Buf, ngeNBID.BitsUnused)
-			} else if globalKPMnodengeNBID.EnbIDType == 2 {
-				ngeNBID := globalKPMnodengeNBID.EnbID.(*NGENBID_ShortMacro)
-				log.Printf("ng-eNB ID ID: %x, Unused: %d", ngeNBID.Buf, ngeNBID.BitsUnused)
-			} else if globalKPMnodengeNBID.EnbIDType == 3 {
-				ngeNBID := globalKPMnodengeNBID.EnbID.(*NGENBID_LongMacro)
-				log.Printf("ng-eNB ID ID: %x, Unused: %d", ngeNBID.Buf, ngeNBID.BitsUnused)
-			}
-		} else if indHdrFormat1.GlobalKPMnodeIDType == 4 {
-			globalKPMnodeeNBID := indHdrFormat1.GlobalKPMnodeID.(*GlobalKPMnodeeNBIDType)
-
-			log.Printf("PlmnID: %x", globalKPMnodeeNBID.PlmnID.Buf)
-			log.Printf("eNB ID Type: %d", globalKPMnodeeNBID.EnbIDType)
-			if globalKPMnodeeNBID.EnbIDType == 1 {
-				eNBID := globalKPMnodeeNBID.EnbID.(*ENBID_Macro)
-				log.Printf("eNB ID ID: %x, Unused: %d", eNBID.Buf, eNBID.BitsUnused)
-			} else if globalKPMnodeeNBID.EnbIDType == 2 {
-				eNBID := globalKPMnodeeNBID.EnbID.(*ENBID_Home)
-				log.Printf("eNB ID ID: %x, Unused: %d", eNBID.Buf, eNBID.BitsUnused)
-			} else if globalKPMnodeeNBID.EnbIDType == 3 {
-				eNBID := globalKPMnodeeNBID.EnbID.(*ENBID_ShortMacro)
-				log.Printf("eNB ID ID: %x, Unused: %d", eNBID.Buf, eNBID.BitsUnused)
-			} else if globalKPMnodeeNBID.EnbIDType == 4 {
-				eNBID := globalKPMnodeeNBID.EnbID.(*ENBID_LongMacro)
-				log.Printf("eNB ID ID: %x, Unused: %d", eNBID.Buf, eNBID.BitsUnused)
-			}
-
+	/*
+		indicationHdr, err := e2sm.GetIndicationHeader(indicationMsg.IndHeader)
+		if err != nil {
+			xapp.Logger.Error("Failed to decode RIC Indication Header: %v", err)
+			return
 		}
-
-		if indHdrFormat1.NRCGI != nil {
-
-			log.Printf("nRCGI.PlmnID: %x", indHdrFormat1.NRCGI.PlmnID.Buf)
-			log.Printf("nRCGI.NRCellID ID: %x, Unused: %d", indHdrFormat1.NRCGI.NRCellID.Buf, indHdrFormat1.NRCGI.NRCellID.BitsUnused)
-
-			cellIDHdr, err = e2sm.ParseNRCGI(*indHdrFormat1.NRCGI)
-			if err != nil {
-				xapp.Logger.Error("Failed to parse NRCGI in RIC Indication Header: %v", err)
-				log.Printf("Failed to parse NRCGI in RIC Indication Header: %v", err)
-				return
-			}
-		} else {
-			cellIDHdr = ""
-		}
-
-		if indHdrFormat1.PlmnID != nil {
-			log.Printf("PlmnID: %x", indHdrFormat1.PlmnID.Buf)
-
-			plmnIDHdr, err = e2sm.ParsePLMNIdentity(indHdrFormat1.PlmnID.Buf, indHdrFormat1.PlmnID.Size)
-			if err != nil {
-				xapp.Logger.Error("Failed to parse PlmnID in RIC Indication Header: %v", err)
-				log.Printf("Failed to parse PlmnID in RIC Indication Header: %v", err)
-				return
-			}
-		} else {
-			plmnIDHdr = ""
-		}
-
-		if indHdrFormat1.SliceID != nil {
-			log.Printf("SST: %x", indHdrFormat1.SliceID.SST.Buf)
-
-			if indHdrFormat1.SliceID.SD != nil {
-				log.Printf("SD: %x", indHdrFormat1.SliceID.SD.Buf)
-			}
-
-			sliceIDHdr, err = e2sm.ParseSliceID(*indHdrFormat1.SliceID)
-			if err != nil {
-				xapp.Logger.Error("Failed to parse SliceID in RIC Indication Header: %v", err)
-				log.Printf("Failed to parse SliceID in RIC Indication Header: %v", err)
-				return
-			}
-		} else {
-			sliceIDHdr = -1
-		}
-
-		if indHdrFormat1.FiveQI != -1 {
-			log.Printf("5QI: %d", indHdrFormat1.FiveQI)
-		}
-		fiveQIHdr = indHdrFormat1.FiveQI
-
-		if indHdrFormat1.Qci != -1 {
-			log.Printf("QCI: %d", indHdrFormat1.Qci)
-		}
-
-		if indHdrFormat1.UeMessageType != -1 {
-			log.Printf("Ue Report type: %d", indHdrFormat1.UeMessageType)
-		}
-
-		if indHdrFormat1.GnbDUID != nil {
-			log.Printf("gNB-DU-ID: %x", indHdrFormat1.GnbDUID.Buf)
-		}
-
-		if indHdrFormat1.GnbNameType == 1 {
-			log.Printf("gNB-DU-Name: %x", (indHdrFormat1.GnbName.(*GNB_DU_Name)).Buf)
-		} else if indHdrFormat1.GnbNameType == 2 {
-			log.Printf("gNB-CU-CP-Name: %x", (indHdrFormat1.GnbName.(*GNB_CU_CP_Name)).Buf)
-		} else if indHdrFormat1.GnbNameType == 3 {
-			log.Printf("gNB-CU-UP-Name: %x", (indHdrFormat1.GnbName.(*GNB_CU_UP_Name)).Buf)
-		}
-
-		if indHdrFormat1.GlobalgNBID != nil {
-			log.Printf("PlmnID: %x", indHdrFormat1.GlobalgNBID.PlmnID.Buf)
-			log.Printf("gNB ID Type: %d", indHdrFormat1.GlobalgNBID.GnbIDType)
-			if indHdrFormat1.GlobalgNBID.GnbIDType == 1 {
-				gNBID := indHdrFormat1.GlobalgNBID.GnbID.(*GNBID)
-				log.Printf("gNB ID ID: %x, Unused: %d", gNBID.Buf, gNBID.BitsUnused)
-			}
-		}
-
-	} else {
-		xapp.Logger.Error("Unknown RIC Indication Header Format: %d", indicationHdr.IndHdrType)
-		log.Printf("Unknown RIC Indication Header Format: %d", indicationHdr.IndHdrType)
-		return
-	}
-
-	indMsg, err := e2sm.GetIndicationMessage(indicationMsg.IndMessage)
-	if err != nil {
-		xapp.Logger.Error("Failed to decode RIC Indication Message: %v", err)
-		log.Printf("Failed to decode RIC Indication Message: %v", err)
-		return
-	}
-
-	var flag bool
-	var containerType int32
-	var timestampPDCPBytes *Timestamp
-	var dlPDCPBytes int64
-	var ulPDCPBytes int64
-	var timestampPRB *Timestamp
-	var availPRBDL int64
-	var availPRBUL int64
-	//Decoding RIC Indication Message
-	log.Printf("-----------RIC Indication Message-----------")
-	log.Printf("StyleType: %d", indMsg.StyleType)
-	if indMsg.IndMsgType == 1 {
-		log.Printf("RIC Indication Message Format: %d", indMsg.IndMsgType)
-
-		indMsgFormat1 := indMsg.IndMsg.(*IndicationMessageFormat1)
-
-		log.Printf("PMContainerCount: %d", indMsgFormat1.PMContainerCount)
-
-		for PMContainerCounter := 0; PMContainerCounter < indMsgFormat1.PMContainerCount; PMContainerCounter++ {
-			flag = false
-			timestampPDCPBytes = nil
-			dlPDCPBytes = -1
-			ulPDCPBytes = -1
-			timestampPRB = nil
-			availPRBDL = -1
-			availPRBUL = -1
-
-			log.Printf("PMContainer[%d]: ", PMContainerCounter)
-
-			pmContainer := indMsgFormat1.PMContainers[PMContainerCounter]
-
-			if pmContainer.PFContainer != nil {
-				containerType = pmContainer.PFContainer.ContainerType
-
-				log.Printf("PFContainerType: %d", containerType)
-
-				if containerType == 1 {
-					log.Printf("oDU PF Container: ")
-
-					oDU := pmContainer.PFContainer.Container.(*ODUPFContainerType)
-
-					cellResourceReportCount := oDU.CellResourceReportCount
-					log.Printf("CellResourceReportCount: %d", cellResourceReportCount)
-
-					for cellResourceReportCounter := 0; cellResourceReportCounter < cellResourceReportCount; cellResourceReportCounter++ {
-						log.Printf("CellResourceReport[%d]: ", cellResourceReportCounter)
-
-						cellResourceReport := oDU.CellResourceReports[cellResourceReportCounter]
-
-						log.Printf("nRCGI.PlmnID: %x", cellResourceReport.NRCGI.PlmnID.Buf)
-						log.Printf("nRCGI.nRCellID: %x", cellResourceReport.NRCGI.NRCellID.Buf)
-
-						cellID, err := e2sm.ParseNRCGI(cellResourceReport.NRCGI)
-						if err != nil {
-							xapp.Logger.Error("Failed to parse CellID in DU PF Container: %v", err)
-							log.Printf("Failed to parse CellID in DU PF Container: %v", err)
-							continue
-						}
-						if cellID == cellIDHdr {
-							flag = true
-						}
-
-						log.Printf("TotalofAvailablePRBsDL: %d", cellResourceReport.TotalofAvailablePRBs.DL)
-						log.Printf("TotalofAvailablePRBsUL: %d", cellResourceReport.TotalofAvailablePRBs.UL)
-
-						if flag {
-							availPRBDL = cellResourceReport.TotalofAvailablePRBs.DL
-							availPRBUL = cellResourceReport.TotalofAvailablePRBs.UL
-						}
-
-						servedPlmnPerCellCount := cellResourceReport.ServedPlmnPerCellCount
-						log.Printf("ServedPlmnPerCellCount: %d", servedPlmnPerCellCount)
-
-						for servedPlmnPerCellCounter := 0; servedPlmnPerCellCounter < servedPlmnPerCellCount; servedPlmnPerCellCounter++ {
-							log.Printf("ServedPlmnPerCell[%d]: ", servedPlmnPerCellCounter)
-
-							servedPlmnPerCell := cellResourceReport.ServedPlmnPerCells[servedPlmnPerCellCounter]
-
-							log.Printf("PlmnID: %x", servedPlmnPerCell.PlmnID.Buf)
-
-							if servedPlmnPerCell.DUPM5GC != nil {
-								slicePerPlmnPerCellCount := servedPlmnPerCell.DUPM5GC.SlicePerPlmnPerCellCount
-								log.Printf("SlicePerPlmnPerCellCount: %d", slicePerPlmnPerCellCount)
-
-								for slicePerPlmnPerCellCounter := 0; slicePerPlmnPerCellCounter < slicePerPlmnPerCellCount; slicePerPlmnPerCellCounter++ {
-									log.Printf("SlicePerPlmnPerCell[%d]: ", slicePerPlmnPerCellCounter)
-
-									slicePerPlmnPerCell := servedPlmnPerCell.DUPM5GC.SlicePerPlmnPerCells[slicePerPlmnPerCellCounter]
-
-									log.Printf("SliceID.sST: %x", slicePerPlmnPerCell.SliceID.SST.Buf)
-									if slicePerPlmnPerCell.SliceID.SD != nil {
-										log.Printf("SliceID.sD: %x", slicePerPlmnPerCell.SliceID.SD.Buf)
-									}
-
-									fQIPERSlicesPerPlmnPerCellCount := slicePerPlmnPerCell.FQIPERSlicesPerPlmnPerCellCount
-									log.Printf("5QIPerSlicesPerPlmnPerCellCount: %d", fQIPERSlicesPerPlmnPerCellCount)
-
-									for fQIPERSlicesPerPlmnPerCellCounter := 0; fQIPERSlicesPerPlmnPerCellCounter < fQIPERSlicesPerPlmnPerCellCount; fQIPERSlicesPerPlmnPerCellCounter++ {
-										log.Printf("5QIPerSlicesPerPlmnPerCell[%d]: ", fQIPERSlicesPerPlmnPerCellCounter)
-
-										fQIPERSlicesPerPlmnPerCell := slicePerPlmnPerCell.FQIPERSlicesPerPlmnPerCells[fQIPERSlicesPerPlmnPerCellCounter]
-
-										log.Printf("5QI: %d", fQIPERSlicesPerPlmnPerCell.FiveQI)
-										log.Printf("PrbUsageDL: %d", fQIPERSlicesPerPlmnPerCell.PrbUsage.DL)
-										log.Printf("PrbUsageUL: %d", fQIPERSlicesPerPlmnPerCell.PrbUsage.UL)
-									}
-								}
-							}
-
-							if servedPlmnPerCell.DUPMEPC != nil {
-								perQCIReportCount := servedPlmnPerCell.DUPMEPC.PerQCIReportCount
-								log.Printf("PerQCIReportCount: %d", perQCIReportCount)
-
-								for perQCIReportCounter := 0; perQCIReportCounter < perQCIReportCount; perQCIReportCounter++ {
-									log.Printf("PerQCIReports[%d]: ", perQCIReportCounter)
-
-									perQCIReport := servedPlmnPerCell.DUPMEPC.PerQCIReports[perQCIReportCounter]
-
-									log.Printf("QCI: %d", perQCIReport.QCI)
-									log.Printf("PrbUsageDL: %d", perQCIReport.PrbUsage.DL)
-									log.Printf("PrbUsageUL: %d", perQCIReport.PrbUsage.UL)
-								}
-							}
-						}
-					}
-				} else if containerType == 2 {
-					log.Printf("oCU-CP PF Container: ")
-
-					oCUCP := pmContainer.PFContainer.Container.(*OCUCPPFContainerType)
-
-					if oCUCP.GNBCUCPName != nil {
-						log.Printf("gNB-CU-CP Name: %x", oCUCP.GNBCUCPName.Buf)
-					}
-
-					log.Printf("NumberOfActiveUEs: %d", oCUCP.CUCPResourceStatus.NumberOfActiveUEs)
-				} else if containerType == 3 {
-					log.Printf("oCU-UP PF Container: ")
-
-					oCUUP := pmContainer.PFContainer.Container.(*OCUUPPFContainerType)
-
-					if oCUUP.GNBCUUPName != nil {
-						log.Printf("gNB-CU-UP Name: %x", oCUUP.GNBCUUPName.Buf)
-					}
-
-					cuUPPFContainerItemCount := oCUUP.CUUPPFContainerItemCount
-					log.Printf("CU-UP PF Container Item Count: %d", cuUPPFContainerItemCount)
-
-					for cuUPPFContainerItemCounter := 0; cuUPPFContainerItemCounter < cuUPPFContainerItemCount; cuUPPFContainerItemCounter++ {
-						log.Printf("CU-UP PF Container Item [%d]: ", cuUPPFContainerItemCounter)
-
-						cuUPPFContainerItem := oCUUP.CUUPPFContainerItems[cuUPPFContainerItemCounter]
-
-						log.Printf("InterfaceType: %d", cuUPPFContainerItem.InterfaceType)
-
-						cuUPPlmnCount := cuUPPFContainerItem.OCUUPPMContainer.CUUPPlmnCount
-						log.Printf("CU-UP Plmn Count: %d", cuUPPlmnCount)
-
-						for cuUPPlmnCounter := 0; cuUPPlmnCounter < cuUPPlmnCount; cuUPPlmnCounter++ {
-							log.Printf("CU-UP Plmn [%d]: ", cuUPPlmnCounter)
-
-							cuUPPlmn := cuUPPFContainerItem.OCUUPPMContainer.CUUPPlmns[cuUPPlmnCounter]
-
-							log.Printf("PlmnID: %x", cuUPPlmn.PlmnID.Buf)
-
-							plmnID, err := e2sm.ParsePLMNIdentity(cuUPPlmn.PlmnID.Buf, cuUPPlmn.PlmnID.Size)
-							if err != nil {
-								xapp.Logger.Error("Failed to parse PlmnID in CU-UP PF Container: %v", err)
-								log.Printf("Failed to parse PlmnID in CU-UP PF Container: %v", err)
-								continue
-							}
-
-							if cuUPPlmn.CUUPPM5GC != nil {
-								sliceToReportCount := cuUPPlmn.CUUPPM5GC.SliceToReportCount
-								log.Printf("SliceToReportCount: %d", sliceToReportCount)
-
-								for sliceToReportCounter := 0; sliceToReportCounter < sliceToReportCount; sliceToReportCounter++ {
-									log.Printf("SliceToReport[%d]: ", sliceToReportCounter)
-
-									sliceToReport := cuUPPlmn.CUUPPM5GC.SliceToReports[sliceToReportCounter]
-
-									log.Printf("SliceID.sST: %x", sliceToReport.SliceID.SST.Buf)
-									if sliceToReport.SliceID.SD != nil {
-										log.Printf("SliceID.sD: %x", sliceToReport.SliceID.SD.Buf)
-									}
-
-									sliceID, err := e2sm.ParseSliceID(sliceToReport.SliceID)
-									if err != nil {
-										xapp.Logger.Error("Failed to parse sliceID in CU-UP PF Container with PlmnID [%s]: %v", plmnID, err)
-										log.Printf("Failed to parse sliceID in CU-UP PF Container with PlmnID [%s]: %v", plmnID, err)
-										continue
-									}
-
-									fQIPERSlicesPerPlmnCount := sliceToReport.FQIPERSlicesPerPlmnCount
-									log.Printf("5QIPerSlicesPerPlmnCount: %d", fQIPERSlicesPerPlmnCount)
-
-									for fQIPERSlicesPerPlmnCounter := 0; fQIPERSlicesPerPlmnCounter < fQIPERSlicesPerPlmnCount; fQIPERSlicesPerPlmnCounter++ {
-										log.Printf("5QIPerSlicesPerPlmn[%d]: ", fQIPERSlicesPerPlmnCounter)
-
-										fQIPERSlicesPerPlmn := sliceToReport.FQIPERSlicesPerPlmns[fQIPERSlicesPerPlmnCounter]
-
-										fiveQI := fQIPERSlicesPerPlmn.FiveQI
-										log.Printf("5QI: %d", fiveQI)
-
-										if plmnID == plmnIDHdr && sliceID == sliceIDHdr && fiveQI == fiveQIHdr {
-											flag = true
-										}
-
-										if fQIPERSlicesPerPlmn.PDCPBytesDL != nil {
-											log.Printf("PDCPBytesDL: %x", fQIPERSlicesPerPlmn.PDCPBytesDL.Buf)
-
-											if flag {
-												dlPDCPBytes, err = e2sm.ParseInteger(fQIPERSlicesPerPlmn.PDCPBytesDL.Buf, fQIPERSlicesPerPlmn.PDCPBytesDL.Size)
-												if err != nil {
-													xapp.Logger.Error("Failed to parse PDCPBytesDL in CU-UP PF Container with PlmnID [%s], SliceID [%d], 5QI [%d]: %v", plmnID, sliceID, fiveQI, err)
-													log.Printf("Failed to parse PDCPBytesDL in CU-UP PF Container with PlmnID [%s], SliceID [%d], 5QI [%d]: %v", plmnID, sliceID, fiveQI, err)
-													continue
-												}
-											}
-										}
-
-										if fQIPERSlicesPerPlmn.PDCPBytesUL != nil {
-											log.Printf("PDCPBytesUL: %x", fQIPERSlicesPerPlmn.PDCPBytesUL.Buf)
-
-											if flag {
-												ulPDCPBytes, err = e2sm.ParseInteger(fQIPERSlicesPerPlmn.PDCPBytesUL.Buf, fQIPERSlicesPerPlmn.PDCPBytesUL.Size)
-												if err != nil {
-													xapp.Logger.Error("Failed to parse PDCPBytesUL in CU-UP PF Container with PlmnID [%s], SliceID [%d], 5QI [%d]: %v", plmnID, sliceID, fiveQI, err)
-													log.Printf("Failed to parse PDCPBytesUL in CU-UP PF Container with PlmnID [%s], SliceID [%d], 5QI [%d]: %v", plmnID, sliceID, fiveQI, err)
-													continue
-												}
-											}
-										}
-									}
-								}
-							}
-
-							if cuUPPlmn.CUUPPMEPC != nil {
-								cuUPPMEPCPerQCIReportCount := cuUPPlmn.CUUPPMEPC.CUUPPMEPCPerQCIReportCount
-								log.Printf("PerQCIReportCount: %d", cuUPPMEPCPerQCIReportCount)
-
-								for cuUPPMEPCPerQCIReportCounter := 0; cuUPPMEPCPerQCIReportCounter < cuUPPMEPCPerQCIReportCount; cuUPPMEPCPerQCIReportCounter++ {
-									log.Printf("PerQCIReport[%d]: ", cuUPPMEPCPerQCIReportCounter)
-
-									cuUPPMEPCPerQCIReport := cuUPPlmn.CUUPPMEPC.CUUPPMEPCPerQCIReports[cuUPPMEPCPerQCIReportCounter]
-
-									log.Printf("QCI: %d", cuUPPMEPCPerQCIReport.QCI)
-
-									if cuUPPMEPCPerQCIReport.PDCPBytesDL != nil {
-										log.Printf("PDCPBytesDL: %x", cuUPPMEPCPerQCIReport.PDCPBytesDL.Buf)
-									}
-									if cuUPPMEPCPerQCIReport.PDCPBytesUL != nil {
-										log.Printf("PDCPBytesUL: %x", cuUPPMEPCPerQCIReport.PDCPBytesUL.Buf)
-									}
-								}
-							}
-						}
-					}
-				} else {
-					xapp.Logger.Error("Unknown PF Container type: %d", containerType)
-					log.Printf("Unknown PF Container type: %d", containerType)
-					continue
+	*/
+
+	//Decoding message and put information into log
+	//log.Printf("-----------RIC Indication Header-----------")
+        //log.Printf("indicationMsg.IndHeader= %x", indicationMsg.IndHeader)
+/*
+        buf := new(bytes.Buffer) //create my buffer
+        binary.Write(buf, binary.LittleEndian, indicationMsg.IndHeader)
+        log.Printf("binary Write buf= %x",buf )
+        b := buf.Bytes()
+        //str := buf.String()
+        //log.Printf(" buf Strin()= %s",str )
+        //cptr1:= unsafe.Pointer(C.CString(str))
+        cptr1:= unsafe.Pointer(&b[0])
+        defer C.free(cptr1)
+*/
+        cptr1 := unsafe.Pointer(&indicationMsg.IndHeader[0])
+        decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(indicationMsg.IndHeader)))
+        //decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(str)))
+        //decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(buf.Len()))
+        if decodedHdr == nil {
+                return errors.New("e2sm wrapper is unable to get IndicationHeader due to wrong or invalid input")
+        }
+        defer C.e2sm_free_ric_indication_header(decodedHdr)
+        IndHdrType := int32(decodedHdr.indicationHeader_formats.present)
+        if IndHdrType==0{
+                log.Printf("No Indication Header present")
+        }
+        if IndHdrType==1{
+                log.Printf("Indication Header format = %d",IndHdrType)
+		/*
+                indHdrFormat1_C := *(**C.E2SM_KPM_IndicationHeader_Format1_t)(unsafe.Pointer(&decodedHdr.indicationHeader_formats.choice[0]))
+                //senderName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderName))
+                senderName_C:=indHdrFormat1_C.senderName
+                var senderName []byte
+                senderName = C.GoBytes(unsafe.Pointer(senderName_C.buf), C.int(senderName_C.size))
+                //log.Printf("Sender Name = %x",senderName)
+
+                //senderType_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderType))
+                senderType_C :=indHdrFormat1_C.senderType
+                //senderType []byte
+                senderType := C.GoBytes(unsafe.Pointer(senderType_C.buf), C.int(senderType_C.size))
+                //log.Printf("Sender Type = %x",senderType)
+
+                //vendorName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.vendorName))
+                vendorName_C :=indHdrFormat1_C.vendorName
+                //vendorName  []byte
+                vendorName := C.GoBytes(unsafe.Pointer(vendorName_C.buf), C.int(vendorName_C.size))
+                //log.Printf("Vendor Name = %x",vendorName)
+		*/
+
+        }
+
+        /*
+                indMsg, err := e2sm.GetIndicationMessage(indicationMsg.IndMessage)
+                if err != nil {
+                        xapp.Logger.Error("Failed to decode RIC Indication Message: %v", err)
+                        return
+                }
+        */
+        //log.Printf("-----------RIC Indication Message-----------")
+        //log.Printf("indicationMsg.IndMessage= %x",indicationMsg.IndMessage)
+        cptr2 := unsafe.Pointer(&indicationMsg.IndMessage[0])
+        indicationmessage := C.e2sm_decode_ric_indication_message(cptr2, C.size_t(len(indicationMsg.IndMessage)))
+        if  indicationmessage == nil {
+                return errors.New("e2sm wrapper is unable to get IndicationMessage due to wrong or invalid input")
+        }
+        defer C.e2sm_free_ric_indication_message(indicationmessage)
+        IndMsgType := int32(indicationmessage.indicationMessage_formats.present)
+        if IndMsgType==1  {//parsing cell metrics
+                fmt.Printf(" parsing for cell metrics\n" )
+                indMsgFormat1_C := *(**C.E2SM_KPM_IndicationMessage_Format1_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
+                no_of_cell:=int32(indMsgFormat1_C .measData.list.count)
+                fmt.Printf(" \n No of cell = %d\n",no_of_cell )
+                //fmt.Println(no_of_cell)
+                for n := int32(0); n < no_of_cell; n++ {
+                                var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
+                                MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat1_C.measData.list.array)) + (uintptr)(int(n))*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+                                no_of_cell_metrics:=int32(MeasurementDataItem_C.measRecord.list.count)
+                                var CellM CellMetricsEntry
+                                v := reflect.ValueOf(CellM)
+                                fmt.Printf(" \n No of cell metrics = %d\n",no_of_cell_metrics)
+                                values := make(map[string]interface{}, v.NumField())
+                                //assert no_of_cell_metrics == v.NumField()   they both should be equal.
+				if (int(no_of_cell_metrics) != v.NumField()){
+			 log.Printf("no_of_cell_metrics != v.NumField()")
+ 			return errors.New("no_of_cell_metrics != v.NumField()")
 				}
-			}
+                                for i := int32(0); i < no_of_cell_metrics; i++ {
+                                        //fmt.Println(i)
+                                        if v.Field(int(i)).CanInterface() {
+                                                        var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+                                                        MeasurementRecordItem_C:=*(**C. MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(int(i))*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+                                                        type_var:=int(MeasurementRecordItem_C.present)
+                                                        if type_var==1{
+                                                                var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+                                                                values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
+                                                                }else if type_var==2{
+                                var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+                                values[v.Type().Field(int(i)).Name]=float64(*cast_float)
+                                                        }else{
+                                                        fmt.Printf("Wrong Data Type")
+                                                }
 
-			if pmContainer.RANContainer != nil {
-				log.Printf("RANContainer: %x", pmContainer.RANContainer.Timestamp.Buf)
+                                                }else {
+                                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
+                                                }
+                                        }//end of inner for loop
 
-				timestamp, _ := e2sm.ParseTimestamp(pmContainer.RANContainer.Timestamp.Buf, pmContainer.RANContainer.Timestamp.Size)
-				log.Printf("Timestamp=[sec: %d, nsec: %d]", timestamp.TVsec, timestamp.TVnsec)
 
-				containerType = pmContainer.RANContainer.ContainerType
-				if containerType == 1 {
-					log.Printf("DU Usage Report: ")
+                                fmt.Println(values)
+                                fmt.Printf("Parsing Cell Metric Done")
+                                c.writeCellMetrics_db(&values)//push cellmetrics map entry to database.
+                        }//end of outer for loop
+                        //end of if IndMsgType==1 , parsing cell metrics done
 
-					oDUUE := pmContainer.RANContainer.Container.(*DUUsageReportType)
+        }  else if IndMsgType==2  { //parsing ue metrics
 
-					for CellResourceReportItemCounter := 0; CellResourceReportItemCounter < oDUUE.CellResourceReportItemCount; CellResourceReportItemCounter++ {
-						cellResourceReportItem := oDUUE.CellResourceReportItems[CellResourceReportItemCounter]
+                fmt.Printf(" parsing for UE metrics" )
+                indMsgFormat2_C := *(**C.E2SM_KPM_IndicationMessage_Format2_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
+                no_of_ue_metrics:=int32(indMsgFormat2_C .measData.list.count)
+                fmt.Printf(" \n No of ue metrics = %d\n",no_of_ue_metrics)
 
-						log.Printf("nRCGI.PlmnID: %x", cellResourceReportItem.NRCGI.PlmnID.Buf)
-						log.Printf("nRCGI.NRCellID: %x, Unused: %d", cellResourceReportItem.NRCGI.NRCellID.Buf, cellResourceReportItem.NRCGI.NRCellID.BitsUnused)
+                var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
+                MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(0)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
 
-						servingCellID, err := e2sm.ParseNRCGI(cellResourceReportItem.NRCGI)
-						if err != nil {
-							xapp.Logger.Error("Failed to parse NRCGI in DU Usage Report: %v", err)
-							log.Printf("Failed to parse NRCGI in DU Usage Report: %v", err)
-							continue
-						}
-
-						for UeResourceReportItemCounter := 0; UeResourceReportItemCounter < cellResourceReportItem.UeResourceReportItemCount; UeResourceReportItemCounter++ {
-							ueResourceReportItem := cellResourceReportItem.UeResourceReportItems[UeResourceReportItemCounter]
-
-							log.Printf("C-RNTI: %x", ueResourceReportItem.CRNTI.Buf)
-
-							ueID, err := e2sm.ParseInteger(ueResourceReportItem.CRNTI.Buf, ueResourceReportItem.CRNTI.Size)
-							if err != nil {
-								xapp.Logger.Error("Failed to parse C-RNTI in DU Usage Report with Serving Cell ID [%s]: %v", servingCellID, err)
-								log.Printf("Failed to parse C-RNTI in DU Usage Report with Serving Cell ID [%s]: %v", servingCellID, err)
-								continue
-							}
-
-							var ueMetrics UeMetricsEntry
-
-							ueMetrics.UeID = ueID
-							log.Printf("UeID: %d", ueMetrics.UeID)
-							ueMetrics.ServingCellID = servingCellID
-							log.Printf("ServingCellID: %s", ueMetrics.ServingCellID)
-							ueMetrics.MeasPeriodRF = 20
-
-							if flag {
-								timestampPRB = timestamp
-							}
-
-							ueMetrics.MeasTimestampPRB.TVsec = timestamp.TVsec
-							ueMetrics.MeasTimestampPRB.TVnsec = timestamp.TVnsec
-
-							if ueResourceReportItem.PRBUsageDL != -1 {
-								ueMetrics.PRBUsageDL = ueResourceReportItem.PRBUsageDL
-								log.Printf("PRBUsageDL: %d", ueMetrics.PRBUsageDL)
-							}
-
-							if ueResourceReportItem.PRBUsageUL != -1 {
-								ueMetrics.PRBUsageUL = ueResourceReportItem.PRBUsageUL
-								log.Printf("PRBUsageUL: %d", ueMetrics.PRBUsageUL)
-							}
-							c.writeUeMetrics_db(ueMetrics)
-						}
-					}
-				} else if containerType == 2 {
-					log.Printf("CU-CP Usage Report: ")
-
-					oCUCPUE := pmContainer.RANContainer.Container.(*CUCPUsageReportType)
-
-					for CellResourceReportItemCounter := 0; CellResourceReportItemCounter < oCUCPUE.CellResourceReportItemCount; CellResourceReportItemCounter++ {
-						cellResourceReportItem := oCUCPUE.CellResourceReportItems[CellResourceReportItemCounter]
-
-						log.Printf("nRCGI.PlmnID: %x", cellResourceReportItem.NRCGI.PlmnID.Buf)
-						log.Printf("nRCGI.NRCellID: %x, Unused: %d", cellResourceReportItem.NRCGI.NRCellID.Buf, cellResourceReportItem.NRCGI.NRCellID.BitsUnused)
-
-						servingCellID, err := e2sm.ParseNRCGI(cellResourceReportItem.NRCGI)
-						if err != nil {
-							xapp.Logger.Error("Failed to parse NRCGI in CU-CP Usage Report: %v", err)
-							log.Printf("Failed to parse NRCGI in CU-CP Usage Report: %v", err)
-							continue
-						}
-
-						for UeResourceReportItemCounter := 0; UeResourceReportItemCounter < cellResourceReportItem.UeResourceReportItemCount; UeResourceReportItemCounter++ {
-							ueResourceReportItem := cellResourceReportItem.UeResourceReportItems[UeResourceReportItemCounter]
-
-							log.Printf("C-RNTI: %x", ueResourceReportItem.CRNTI.Buf)
-
-							ueID, err := e2sm.ParseInteger(ueResourceReportItem.CRNTI.Buf, ueResourceReportItem.CRNTI.Size)
-							if err != nil {
-								xapp.Logger.Error("Failed to parse C-RNTI in CU-CP Usage Report with Serving Cell ID [%s]: %v", err)
-								log.Printf("Failed to parse C-RNTI in CU-CP Usage Report with Serving Cell ID [%s]: %v", err)
-								continue
-							}
-
-							var ueMetrics UeMetricsEntry
-
-							ueMetrics.UeID = ueID
-							log.Printf("UeID: %d", ueMetrics.UeID)
-							ueMetrics.ServingCellID = servingCellID
-							log.Printf("ServingCellID: %s", ueMetrics.ServingCellID)
-
-							ueMetrics.MeasTimeRF.TVsec = timestamp.TVsec
-							ueMetrics.MeasTimeRF.TVnsec = timestamp.TVnsec
-
-							ueMetrics.MeasPeriodPDCP = 20
-							ueMetrics.MeasPeriodPRB = 20
-
-							if ueResourceReportItem.ServingCellRF != nil {
-								err = json.Unmarshal(ueResourceReportItem.ServingCellRF.Buf, &ueMetrics.ServingCellRF)
-								log.Printf("ueMetrics.ServingCellRF: %+v", ueMetrics.ServingCellRF)
-								if err != nil {
-									xapp.Logger.Error("Failed to Unmarshal ServingCellRF in CU-CP Usage Report with UE ID [%d]: %v", ueID, err)
-									log.Printf("Failed to Unmarshal ServingCellRF in CU-CP Usage Report with UE ID [%d]: %v", ueID, err)
-									log.Printf("ServingCellRF raw data: %x", ueResourceReportItem.ServingCellRF.Buf)
-									continue
-								}
-							}
-
-							if ueResourceReportItem.NeighborCellRF != nil {
-								err = json.Unmarshal(ueResourceReportItem.NeighborCellRF.Buf, &ueMetrics.NeighborCellsRF)
-								log.Printf("ueMetrics.NeighborCellsRF: %+v", ueMetrics.NeighborCellsRF)
-								if err != nil {
-									xapp.Logger.Error("Failed to Unmarshal NeighborCellRF in CU-CP Usage Report with UE ID [%d]: %v", ueID, err)
-									log.Printf("Failed to Unmarshal NeighborCellRF in CU-CP Usage Report with UE ID [%d]: %v", ueID, err)
-									log.Printf("NeighborCellRF raw data: %x", ueResourceReportItem.NeighborCellRF.Buf)
-									continue
-								}
-							}
-							c.writeUeMetrics_db(ueMetrics)
-						}
-					}
-				} else if containerType == 3 {
-					log.Printf("CU-UP Usage Report: ")
-
-					oCUUPUE := pmContainer.RANContainer.Container.(*CUUPUsageReportType)
-
-					for CellResourceReportItemCounter := 0; CellResourceReportItemCounter < oCUUPUE.CellResourceReportItemCount; CellResourceReportItemCounter++ {
-						cellResourceReportItem := oCUUPUE.CellResourceReportItems[CellResourceReportItemCounter]
-
-						log.Printf("nRCGI.PlmnID: %x", cellResourceReportItem.NRCGI.PlmnID.Buf)
-						log.Printf("nRCGI.NRCellID: %x, Unused: %d", cellResourceReportItem.NRCGI.NRCellID.Buf, cellResourceReportItem.NRCGI.NRCellID.BitsUnused)
-
-						servingCellID, err := e2sm.ParseNRCGI(cellResourceReportItem.NRCGI)
-						if err != nil {
-							xapp.Logger.Error("Failed to parse NRCGI in CU-UP Usage Report: %v", err)
-							log.Printf("Failed to parse NRCGI in CU-UP Usage Report: %v", err)
-							continue
-						}
-
-						for UeResourceReportItemCounter := 0; UeResourceReportItemCounter < cellResourceReportItem.UeResourceReportItemCount; UeResourceReportItemCounter++ {
-							ueResourceReportItem := cellResourceReportItem.UeResourceReportItems[UeResourceReportItemCounter]
-
-							log.Printf("C-RNTI: %x", ueResourceReportItem.CRNTI.Buf)
-
-							ueID, err := e2sm.ParseInteger(ueResourceReportItem.CRNTI.Buf, ueResourceReportItem.CRNTI.Size)
-							if err != nil {
-								xapp.Logger.Error("Failed to parse C-RNTI in CU-UP Usage Report Serving Cell ID [%s]: %v", servingCellID, err)
-								log.Printf("Failed to parse C-RNTI in CU-UP Usage Report Serving Cell ID [%s]: %v", servingCellID, err)
-								continue
-							}
-
-							var ueMetrics UeMetricsEntry
-
-							ueMetrics.UeID = ueID
-							log.Printf("UeID: %d", ueMetrics.UeID)
-							ueMetrics.ServingCellID = servingCellID
-							log.Printf("ServingCellID: %s", ueMetrics.ServingCellID)
-
-							if flag {
-								timestampPDCPBytes = timestamp
-							}
-
-							ueMetrics.MeasTimestampPDCPBytes.TVsec = timestamp.TVsec
-							ueMetrics.MeasTimestampPDCPBytes.TVnsec = timestamp.TVnsec
-
-							if ueResourceReportItem.PDCPBytesDL != nil {
-								ueMetrics.PDCPBytesDL, err = e2sm.ParseInteger(ueResourceReportItem.PDCPBytesDL.Buf, ueResourceReportItem.PDCPBytesDL.Size)
-								if err != nil {
-									xapp.Logger.Error("Failed to parse PDCPBytesDL in CU-UP Usage Report with UE ID [%d]: %v", ueID, err)
-									log.Printf("Failed to parse PDCPBytesDL in CU-UP Usage Report with UE ID [%d]: %v", ueID, err)
-									continue
-								}
-							}
-
-							if ueResourceReportItem.PDCPBytesUL != nil {
-								ueMetrics.PDCPBytesUL, err = e2sm.ParseInteger(ueResourceReportItem.PDCPBytesUL.Buf, ueResourceReportItem.PDCPBytesUL.Size)
-								if err != nil {
-									xapp.Logger.Error("Failed to parse PDCPBytesUL in CU-UP Usage Report with UE ID [%d]: %v", ueID, err)
-									log.Printf("Failed to parse PDCPBytesUL in CU-UP Usage Report with UE ID [%d]: %v", ueID, err)
-									continue
-								}
-							}
-
-							c.writeUeMetrics_db(ueMetrics)
-						}
-					}
-				} else {
-					xapp.Logger.Error("Unknown PF Container Type: %d", containerType)
-					log.Printf("Unknown PF Container Type: %d", containerType)
-					continue
+                no_of_ue:=int32(MeasurementDataItem_C.measRecord.list.count)
+                fmt.Printf(" \n No of ue= %d\n",no_of_ue)
+                for n := int32(0); n < no_of_ue; n++ {
+                                var UeM UeMetricsEntry
+                                v := reflect.ValueOf(UeM)
+                                values := make(map[string]interface{}, v.NumField())
+                                //assert no_of_ue_metrics == v.NumField()   they both should be equal.
+				if (int(no_of_ue_metrics) != v.NumField()){
+ 			 log.Printf("no_of_ue_metrics != v.NumField()")
+			 return errors.New("no_of_ue_metrics != v.NumField()")
 				}
-			}
+                                for i := int32(0); i < no_of_ue_metrics; i++ {
+                                //fmt.Println(i)
+                                if v.Field(int(i)).CanInterface() {
 
-			if flag {
-				var cellMetrics CellMetricsEntry
+                                        var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
+                                        MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(i)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+                                        var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+                                        MeasurementRecordItem_C:=*(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(n)*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
 
-				cellMetrics.MeasPeriodPDCP = 20
-				cellMetrics.MeasPeriodPRB = 20
-				cellMetrics.CellID = cellIDHdr
+                                        type_var:=int(MeasurementRecordItem_C.present)
+                                if type_var==1{
+                                        var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+                                        values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
+                                }else if type_var==2{
+                                        var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+                                        values[v.Type().Field(int(i)).Name]=float64(*cast_float)
 
-				if timestampPDCPBytes != nil {
-					cellMetrics.MeasTimestampPDCPBytes.TVsec = timestampPDCPBytes.TVsec
-					cellMetrics.MeasTimestampPDCPBytes.TVnsec = timestampPDCPBytes.TVnsec
-				}
-				if dlPDCPBytes != -1 {
-					cellMetrics.PDCPBytesDL = dlPDCPBytes
-				}
-				if ulPDCPBytes != -1 {
-					cellMetrics.PDCPBytesUL = ulPDCPBytes
-				}
-				if timestampPRB != nil {
-					cellMetrics.MeasTimestampPRB.TVsec = timestampPRB.TVsec
-					cellMetrics.MeasTimestampPRB.TVnsec = timestampPRB.TVnsec
-				}
-				if availPRBDL != -1 {
-					cellMetrics.AvailPRBDL = availPRBDL
-				}
-				if availPRBUL != -1 {
-					cellMetrics.AvailPRBUL = availPRBUL
-				}
-				c.writeCellMetrics_db(cellMetrics)
-			}
-		}
-	} else {
-		xapp.Logger.Error("Unknown RIC Indication Message Format: %d", indMsg.IndMsgType)
-		log.Printf("Unkonw RIC Indication Message Format: %d", indMsg.IndMsgType)
-		return
-	}
+                                        }else{
+                                        fmt.Printf("Wrong Data Type")
+                                }
 
-	return nil
+                        }else {
+                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
+                                }
+
+
+                                        }       //end of inner for loop
+                        fmt.Println(values)
+                         fmt.Printf("Parsing UE Metric Done")
+                         c.writeUeMetrics_db(&values)//push UEmetrics map entry to database.
+
+                        }// end of outer for loop
+        //parsing ue metrics done
+        }else{
+                fmt.Printf(" Invalid Indication message format" )
+
+        }
+
+
+        return nil
+
+
 }
 
-func (c *Control) writeUeMetrics_db(ueMetrics UeMetricsEntry) {
-	//Write UE metrics to InfluxDB using API
+// func (c *Control) writeUeMetrics_db(ueMetrics UeMetricsEntry) {
+// 	//Write metric to InfluxDB using API
+// 	writeAPI := c.client.WriteAPIBlocking("my-org", "kpimon")
+// 	ueMetricsJSON, err := json.Marshal(ueMetrics)
+// 	if err != nil {
+// 		xapp.Logger.Error("Marshal UE Metrics failed!")
+// 	}
+// 	p := influxdb2.NewPointWithMeasurement("ricIndication_UeMetrics").
+// 		AddField("UE Metrics", ueMetricsJSON).
+// 		SetTime(time.Now())
+// 	writeAPI.WritePoint(context.Background(), p)
+// 	xapp.Logger.Info("Wrote UE Metrics to InfluxDB")
+// }
+
+// func (c *Control) writeCellMetrics_db(cellMetrics CellMetricsEntry) {
+// 	writeAPI := c.client.WriteAPIBlocking("my-org", "kpimon")
+// 	cellMetricsJSON, er := json.Marshal(cellMetrics)
+// 	if er != nil {
+// 		xapp.Logger.Error("Marshal Cell Metrics failed!")
+// 	}
+// 	p := influxdb2.NewPointWithMeasurement("ricIndication_cellMetrics").
+// 		AddField("Cell Metrics", cellMetricsJSON).
+// 		SetTime(time.Now())
+// 	writeAPI.WritePoint(context.Background(), p)
+// 	xapp.Logger.Info("Wrote Cell Metrics to InfluxDB")
+// }
+
+/*
+func (c *Control) queryUEReports() {
+	log.Printf("query UE")
+	resp, err := http.Get("http://10.244.0.68/sba/influx/query?db=RIC-Test-static&q=select+*+from+UEReports")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	var results ViaviMessages
+	er := json.Unmarshal(body, &results)
+	if er != nil {
+		panic(er)
+	}
+	// 	sb := string(body)
+	//    log.Printf(sb)
+	c.writeUeMetrics_db(results.results.series)
+}
+
+func (c *Control) queryCellReports() {
+	log.Printf("query cell")
+	resp, err := http.Get("http://10.244.0.68/sba/influx/query?db=RIC-Test-static&q=select+*+from+CellReports")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	var results ViaviMessages
+	er := json.Unmarshal(body, &results)
+	if er != nil {
+		panic(er)
+	}
+	c.writeCellMetrics_db(results.results.series)
+}
+*/
+func (c *Control) writeUeMetrics_db(ueMetrics *map[string]interface{}) {
 	writeAPI := c.client.WriteAPIBlocking("my-org", "kpimon")
 	ueMetricsJSON, err := json.Marshal(ueMetrics)
 	if err != nil {
 		xapp.Logger.Error("Marshal UE Metrics failed!")
 	}
-	p := influxdb2.NewPointWithMeasurement("ricIndication_UeMetrics").
+	p := influxdb2.NewPointWithMeasurement("UeMetrics").
 		AddField("UE Metrics", ueMetricsJSON).
 		SetTime(time.Now())
 	writeAPI.WritePoint(context.Background(), p)
 	xapp.Logger.Info("Wrote UE Metrics to InfluxDB")
 }
-func (c *Control) writeCellMetrics_db(cellMetrics CellMetricsEntry) {
-	//Write cell metrics to InfluxDB using API
+
+func (c *Control) writeCellMetrics_db(cellMetrics *map[string]interface{}) {
 	writeAPI := c.client.WriteAPIBlocking("my-org", "kpimon")
 	cellMetricsJSON, er := json.Marshal(cellMetrics)
 	if er != nil {
 		xapp.Logger.Error("Marshal Cell Metrics failed!")
 	}
-	p := influxdb2.NewPointWithMeasurement("ricIndication_cellMetrics").
+	p := influxdb2.NewPointWithMeasurement("cellMetrics").
 		AddField("Cell Metrics", cellMetricsJSON).
 		SetTime(time.Now())
+
 	writeAPI.WritePoint(context.Background(), p)
 	xapp.Logger.Info("Wrote Cell Metrics to InfluxDB")
 }
+
 func (c Control) xAppStartCB(d interface{}) {
 	xapp.Logger.Info("In callback KPI monitor xApp ...")
 
@@ -905,8 +874,12 @@ func (c Control) xAppStartCB(d interface{}) {
 		}
 
 	}
-	//Call controlLoop to handle the message from e2Nodes
+	fmt.Println("len of Glob_cell= ",len(Glob_cell))
+	fmt.Println("Glob_cell map = ", Glob_cell)
+
 	go c.controlLoop()
+	//go c.queryUEReports()
+	//go c.queryCellReports()
 	xapp.Logger.Info("End callback KPI monitor xApp ...")
 }
 
@@ -914,6 +887,7 @@ func (c Control) Run() {
 	// Setup level
 	xapp.Logger.SetLevel(xapp.Config.GetInt("logger.level"))
 	// Register callback
+	xapp.Logger.Info("In Run() ...")
 	xapp.SetReadyCB(c.xAppStartCB, true)
 	// Start xApp
 	xapp.Run(c)

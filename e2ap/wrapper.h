@@ -1,6 +1,7 @@
 #ifndef	_WRAPPER_H_
 #define	_WRAPPER_H_
-
+#include <stdio.h>
+#include <stdlib.h>
 #include "RICsubscriptionRequest.h"
 #include "RICsubscriptionResponse.h"
 #include "RICsubscriptionDeleteRequest.h"
@@ -97,6 +98,7 @@ long e2ap_get_ric_subscription_delete_failure_sequence_number(void *buffer, size
 
 /* RICindication */
 RICindicationMsg* e2ap_decode_ric_indication_message(void *buffer, size_t buf_size);
+RICindicationMsg* e2ap_decode_ric_indication_m();
 void e2ap_free_decoded_ric_indication_message(RICindicationMsg* msg);
 
 #endif /* _WRAPPER_H_ */

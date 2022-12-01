@@ -20,15 +20,18 @@ RUN cd e2ap && \
 # "COMPILING E2SM Wrapper"
 RUN cd e2sm && \
     gcc -c -fPIC -Iheaders/ lib/*.c wrapper.c && \
-    gcc *.o -shared -o libe2smwrapper.so && \
+     gcc *.o -shared -o libe2smwrapper.so&& \
     cp libe2smwrapper.so /usr/local/lib/ && \
     mkdir /usr/local/include/e2sm && \
     cp wrapper.h headers/*.h /usr/local/include/e2sm && \
     ldconfig
+
 # Setup running environment
 COPY control/ control/
 COPY ./go.mod ./go.mod
 COPY ./kpimon.go ./kpimon.go
+COPY testfile1.txt testfile1.txt
+COPY testfile2.txt testfile2.txt
 
 RUN wget -nv --no-check-certificate https://dl.google.com/go/go1.18.linux-amd64.tar.gz \
      && tar -xf go1.18.linux-amd64.tar.gz \
@@ -43,5 +46,6 @@ COPY config-file.yaml .
 ENV CFG_FILE=/opt/config-file.yaml
 COPY routes.txt .
 ENV RMR_SEED_RT=/opt/routes.txt
+ENV  RMR_SRC_ID=service-ricxapp-kpimon-go-rmr.ricxapp:4560
 
 ENTRYPOINT ["env","LD_LIBRARY_PATH=/usr/local/lib","./kpimon"]

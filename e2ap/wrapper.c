@@ -642,6 +642,125 @@ RICindicationMsg* e2ap_decode_ric_indication_message(void *buffer, size_t buf_si
     return NULL;
 }
 
+
+RICindicationMsg* e2ap_decode_ric_indication_m()
+{
+    		 
+		 
+   		FILE *fp3 = fopen("testfile1.txt", "r");
+		if (fp3==NULL)
+		{
+		 printf("\nFAILED TO OPEN FILE SANDY3.TXT");
+		 return NULL;
+		}
+                fseek(fp3, 0L, SEEK_END);
+                long numbytes = ftell(fp3);
+                fseek(fp3, 0L, SEEK_SET);
+                char* text = (char*)calloc(numbytes, sizeof(char));
+                fread(text, sizeof(char), numbytes, fp3);
+                fclose(fp3);
+                printf(text);
+                E2AP_PDU_t *pdu=0;
+                asn_dec_rval_t lol =xer_decode(0,&asn_DEF_E2AP_PDU, (void **)&pdu,text,numbytes);
+                printf("\nxer decode result =%d",lol.code);
+		FILE *fp4 = fopen("testfile1.txt", "w");
+                int r2=asn_fprint(fp4,&asn_DEF_E2AP_PDU,pdu);
+                fclose(fp4);
+                if (r2==-1)
+                         fprintf(stderr, "failed asn_fprint r2\n");
+                else
+                         fprintf(stderr, "successfull asn_fprint r2\n");
+
+
+    if ( pdu != NULL && pdu->present == E2AP_PDU_PR_initiatingMessage)
+    {
+        InitiatingMessage_t* initiatingMessage = pdu->choice.initiatingMessage;
+        if ( initiatingMessage->procedureCode == ProcedureCode_id_RICindication
+            && initiatingMessage->value.present == InitiatingMessage__value_PR_RICindication)
+        {
+            RICindication_t *indication = &(initiatingMessage->value.choice.RICindication);
+            RICindicationMsg *msg = (RICindicationMsg *)calloc(1, sizeof(RICindicationMsg));
+            for (int i = 0; i < indication->protocolIEs.list.count; ++i )
+            {
+                if (indication->protocolIEs.list.array[i]->id == ProtocolIE_ID_id_RICrequestID) {
+                    msg->requestorID = indication->protocolIEs.list.array[i]->value.choice.RICrequestID.ricRequestorID;
+                    msg->requestSequenceNumber = indication->protocolIEs.list.array[i]->value.choice.RICrequestID.ricInstanceID;
+                }
+                else if (indication->protocolIEs.list.array[i]->id == ProtocolIE_ID_id_RANfunctionID) {
+                    msg->ranfunctionID = indication->protocolIEs.list.array[i]->value.choice.RANfunctionID;
+                }
+                else if (indication->protocolIEs.list.array[i]->id == ProtocolIE_ID_id_RICactionID) {
+                    msg->actionID = indication->protocolIEs.list.array[i]->value.choice.RICactionID;
+                }
+                else if(indication->protocolIEs.list.array[i]->id == ProtocolIE_ID_id_RICindicationSN) {
+                    msg->indicationSN = indication->protocolIEs.list.array[i]->value.choice.RICindicationSN;
+                }
+                else if(indication->protocolIEs.list.array[i]->id == ProtocolIE_ID_id_RICindicationType) {
+                    msg->indicationType = indication->protocolIEs.list.array[i]->value.choice.RICindicationType;
+                }
+                else if(indication->protocolIEs.list.array[i]->id == ProtocolIE_ID_id_RICindicationHeader) {
+                    size_t headerSize = indication->protocolIEs.list.array[i]->value.choice.RICindicationHeader.size;
+                    msg->indicationHeader = calloc(1, headerSize);
+                    if (!msg->indicationHeader) {
+                        fprintf(stderr, "alloc RICindicationHeader failed\n");
+                        e2ap_free_decoded_ric_indication_message(msg);
+                        ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
+                        return NULL;
+                    }
+
+                    memcpy(msg->indicationHeader, indication->protocolIEs.list.array[i]->value.choice.RICindicationHeader.buf, headerSize);
+                    msg->indicationHeaderSize = headerSize;
+                }
+                else if(indication->protocolIEs.list.array[i]->id == ProtocolIE_ID_id_RICindicationMessage) {
+                    size_t messsageSize = indication->protocolIEs.list.array[i]->value.choice.RICindicationMessage.size;
+                    msg->indicationMessage = calloc(1, messsageSize);
+                    if (!msg->indicationMessage) {
+                        fprintf(stderr, "alloc RICindicationMessage failed\n");
+                        e2ap_free_decoded_ric_indication_message(msg);
+                        ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
+                        return NULL;
+                    }
+
+                    memcpy(msg->indicationMessage, indication->protocolIEs.list.array[i]->value.choice.RICindicationMessage.buf, messsageSize);
+                    msg->indicationMessageSize = messsageSize;
+                }
+                else if(indication->protocolIEs.list.array[i]->id == ProtocolIE_ID_id_RICcallProcessID) {
+                    size_t callProcessIDSize = indication->protocolIEs.list.array[i]->value.choice.RICcallProcessID.size;
+                    msg->callProcessID = calloc(1, callProcessIDSize);
+                    if (!msg->callProcessID) {
+                        fprintf(stderr, "alloc RICcallProcessID failed\n");
+                        e2ap_free_decoded_ric_indication_message(msg);
+                        ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
+                        return NULL;
+                    }
+
+                    memcpy(msg->callProcessID, indication->protocolIEs.list.array[i]->value.choice.RICcallProcessID.buf, callProcessIDSize);
+                    msg->callProcessIDSize = callProcessIDSize;
+                }
+            }
+/*
+		RICindicationHeader_t *hdr;
+		hdr=calloc(1, sizeof(RICindicationHeader_t));
+		memcpy( hdr->buf,msg->indicationHeader,msg->indicationHeaderSize);
+		hdr->size=msg->indicationHeaderSize;
+	     xer_fprint(stdout, &asn_DEF_RICindicationHeader,hdr);
+	     RICindicationMessage_t *indm;
+	     indm=calloc(1, sizeof(RICindicationMessage_t));
+	     memcpy(indm->buf, msg->indicationMessage,msg->indicationMessageSize);
+	     indm->size=msg->indicationMessageSize;
+	  xer_fprint(stdout, &asn_DEF_RICindicationMessage, indm);
+*/	  
+//	  fprintf(stderr, "\nreturning msg\n");
+
+	    return msg;
+        }
+    }
+ //fprintf(stderr, "\nreturning null");
+    if(pdu != NULL)
+        ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, pdu);
+    return NULL;
+}
+
 void e2ap_free_decoded_ric_indication_message(RICindicationMsg* msg) {
     if(msg == NULL) {
         return;

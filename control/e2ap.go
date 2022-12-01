@@ -30,6 +30,8 @@ import "C"
 import (
 	"errors"
 	"unsafe"
+	"fmt"
+//	"log"
 )
 
 type E2ap struct {
@@ -251,3 +253,35 @@ func (c *E2ap) GetIndicationMessage(payload []byte) (decodedMsg *DecodedIndicati
 	decodedMsg.CallProcessIDLength = int32(decodedCMsg.callProcessIDSize)
 	return
 }
+
+func (c *E2ap) GetIndicationM() (decodedMsg *DecodedIndicationMessage, err error) {
+        decodedMsg = &DecodedIndicationMessage{}
+        decodedCMsg := C.e2ap_decode_ric_indication_m()
+        if decodedCMsg == nil {
+                return decodedMsg, errors.New("e2ap wrapper is unable to decode indication message due to wrong or invalid payload")
+        }
+        defer C.e2ap_free_decoded_ric_indication_message(decodedCMsg)
+
+        decodedMsg.RequestID = int32(decodedCMsg.requestorID)
+        decodedMsg.RequestSequenceNumber = int32(decodedCMsg.requestSequenceNumber)
+        decodedMsg.FuncID = int32(decodedCMsg.ranfunctionID)
+        decodedMsg.ActionID = int32(decodedCMsg.actionID)
+        decodedMsg.IndSN = int32(decodedCMsg.indicationSN)
+        decodedMsg.IndType = int32(decodedCMsg.indicationType)
+        indhdr := unsafe.Pointer(decodedCMsg.indicationHeader)
+        decodedMsg.IndHeader = C.GoBytes(indhdr, C.int(decodedCMsg.indicationHeaderSize))
+	fmt.Println(decodedMsg.IndHeader)
+	//log.Printf("decodedMsg.IndHeader= %x",decodedMsg.IndHeader)
+        decodedMsg.IndHeaderLength = int32(decodedCMsg.indicationHeaderSize)
+        indmsg := unsafe.Pointer(decodedCMsg.indicationMessage)
+        decodedMsg.IndMessage = C.GoBytes(indmsg, C.int(decodedCMsg.indicationMessageSize))
+ 	fmt.Println(decodedMsg.IndMessage)
+        //log.Printf("decodedMsg.IndMessage= %x",decodedMsg.IndMessage)
+
+        decodedMsg.IndMessageLength = int32(decodedCMsg.indicationMessageSize)
+        callproc := unsafe.Pointer(decodedCMsg.callProcessID)
+        decodedMsg.CallProcessID = C.GoBytes(callproc, C.int(decodedCMsg.callProcessIDSize))
+        decodedMsg.CallProcessIDLength = int32(decodedCMsg.callProcessIDSize)
+        return
+}
+

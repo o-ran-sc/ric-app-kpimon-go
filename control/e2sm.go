@@ -21,7 +21,7 @@ package control
 
 /*
 #include <e2sm/wrapper.h>
-#cgo LDFLAGS: -le2smwrapper
+#cgo LDFLAGS: -le2smwrapper -lm
 #cgo CFLAGS: -I/usr/local/include/e2sm
 */
 import "C"
@@ -47,7 +47,7 @@ func (c *E2sm) SetEventTriggerDefinition(buffer []byte, eventTriggerCount int, R
 	newBuffer = C.GoBytes(cptr, (C.int(size)+7)/8)
 	return
 }
-
+/*
 func (c *E2sm) SetActionDefinition(buffer []byte, ricStyleType int64) (newBuffer []byte, err error) {
 	cptr := unsafe.Pointer(&buffer[0])
 	size := C.e2sm_encode_ric_action_definition(cptr, C.size_t(len(buffer)), C.long(ricStyleType))
@@ -57,7 +57,6 @@ func (c *E2sm) SetActionDefinition(buffer []byte, ricStyleType int64) (newBuffer
 	newBuffer = C.GoBytes(cptr, (C.int(size)+7)/8)
 	return
 }
-
 func (c *E2sm) GetIndicationHeader(buffer []byte) (indHdr *IndicationHeader, err error) {
 	cptr := unsafe.Pointer(&buffer[0])
 	indHdr = &IndicationHeader{}
@@ -789,6 +788,7 @@ func (c *E2sm) ParseNRCGI(nRCGI NRCGIType) (CellID string, err error) {
 
 	return
 }
+*/
 
 func (c *E2sm) ParsePLMNIdentity(buffer []byte, size int) (PlmnID string, err error) {
 	if size != 3 {

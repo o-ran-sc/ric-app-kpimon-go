@@ -1,13 +1,13 @@
 {
-  "xapp_name": "xappkpimon",
-  "version": "1.0.0",
+  "xapp_name": "kpimon-go",
+  "version": "2.0.1",
   "containers": [
     {
-      "name": "xappkpimon",
+      "name": "kpimon-go",
       "image": {
-        "registry": "example.com",
-        "name": "5gvietnam/kpimon",
-        "tag": "1.0.0"
+        "registry": "nexus3.o-ran-sc.org:10004",
+        "name": "o-ran-sc/ric-app-kpimon-go",
+        "tag": "3.9.9"
       }
     }
   ],
@@ -15,13 +15,13 @@
     "ports": [
       {
         "name": "http",
-        "container": "xappkpimon",
+        "container": "kpimon-go",
         "port": 8080,
         "description": "http service"
       },
       {
         "name": "rmr-data",
-        "container": "xappkpimon",
+        "container": "kpimon-go",
         "port": 4560,
         "rxMessages": ["RIC_SUB_RESP", "RIC_INDICATION"],
         "txMessages": ["RIC_SUB_REQ"],
@@ -30,7 +30,7 @@
       },
       {
         "name": "rmr-route",
-        "container": "xappkpimon",
+        "container": "kpimon-go",
         "port": 4561,
         "description": "rmr route port for xappkpimon"
       }
