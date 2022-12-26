@@ -41,6 +41,10 @@ committers:
       email: 'kumar.sandeep3@hcl.com'
       company: 'HCL'
       id: 'sandeepindia'
+    - name: 'Subhash Kumar Singh'
+      email: 'subh.singh@samsung.com'
+      company: 'Samsung'
+      id: 'subhash_singh'
 tsc:
     # yamllint disable rule:line-length
     approval: 'https://wiki.o-ran-sc.org/pages/viewpage.action?pageId=47748899'
