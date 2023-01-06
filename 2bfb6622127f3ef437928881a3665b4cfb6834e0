@@ -1,0 +1,7 @@
+Verified+1: ORAN Jobbuilder <releng+oran-jobbuilder@linuxfoundation.org>
+Code-Review+2: SANDEEP KUMAR <kumar.sandeep3@hcl.com>
+Submitted-by: SANDEEP KUMAR <kumar.sandeep3@hcl.com>
+Submitted-at: Fri, 06 Jan 2023 17:56:35 +0000
+Reviewed-on: https://gerrit.o-ran-sc.org/r/c/ric-app/kpimon-go/+/10239
+Project: ric-app/kpimon-go
+Branch: refs/heads/master
