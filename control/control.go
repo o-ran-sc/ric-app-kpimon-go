@@ -865,6 +865,14 @@ func (c Control) xAppStartCB(d interface{}) {
 	// Get eNodeB list
 	nbList := c.getnbList()
 
+	for {
+		time.Sleep(5 * time.Second)
+		if xapp.IsRegistered() {
+			xapp.Logger.Info("App registration is done, ready to send subscription request.")
+			break
+		}
+		xapp.Logger.Debug("App registration is not done yet, sleep 5s and check again")
+	}
 	// Send subscription request to connected NodeB
 	for _, nb := range nbList {
 		if nb.ConnectionStatus == 1 {
@@ -874,6 +882,7 @@ func (c Control) xAppStartCB(d interface{}) {
 		}
 
 	}
+
 	fmt.Println("len of Glob_cell= ",len(Glob_cell))
 	fmt.Println("Glob_cell map = ", Glob_cell)
 
