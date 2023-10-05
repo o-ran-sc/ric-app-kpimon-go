@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "d65740ba_ce127472",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1002313
+      },
+      "writtenOn": "2023-10-05T18:02:19Z",
+      "side": 1,
+      "message": "Hi guys, could you please review this? The changes are to fix some issues to make kpimon work.",
+      "revId": "9b27f59cbe3c51ea7a6c63f7bd8fe86ac732ea3d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    }
+  ]
+}
