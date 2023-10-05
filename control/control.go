@@ -1,4 +1,5 @@
 package control
+
 /*
 #include <e2sm/wrapper.h>
 #cgo LDFLAGS: -le2smwrapper -lm
@@ -7,25 +8,25 @@ package control
 import "C"
 
 import (
-	"unsafe"
-)
-
-import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
-	"time"
-//	"bytes"
-//	"encoding/binary"
-	"strconv"
-	"encoding/base64"
-	"strings"
-	"fmt"
 	"reflect"
-	"errors"
+	"strconv"
+	"strings"
+	"time"
+	"unsafe"
+
 	"gerrit.o-ran-sc.org/r/ric-plt/xapp-frame/pkg/clientmodel"
 	"gerrit.o-ran-sc.org/r/ric-plt/xapp-frame/pkg/xapp"
+
+	//	"bytes"
+	//	"encoding/binary"
+
 	influxdb2 "github.com/influxdata/influxdb-client-go"
 )
 
@@ -40,12 +41,13 @@ var (
 	actionType           = "report"
 	actionId             = int64(1)
 	seqId                = int64(1)
-	funcId               = int64(2)
+	funcId               = int64(0)
 	hPort                = int64(8080)
 	rPort                = int64(4560)
 	clientEndpoint       = clientmodel.SubscriptionParamsClientEndpoint{Host: "service-ricxapp-kpimon-go-http.ricxapp", HTTPPort: &hPort, RMRPort: &rPort}
 )
 var Glob_cell = make(map[string]bool)
+
 func (c Control) Consume(msg *xapp.RMRParams) error {
 	id := xapp.Rmr.GetRicMessageName(msg.Mtype)
 	xapp.Logger.Info(
@@ -86,9 +88,9 @@ func (c Control) getEnbList() ([]*xapp.RNIBNbIdentity, error) {
 		return nil, err
 	}
 
-	xapp.Logger.Info("List for connected eNBs :")
+	xapp.Logger.Info("There are %d connected eNBs", len(enbs))
 	for index, enb := range enbs {
-		xapp.Logger.Info("%d. enbid: %s", index+1, enb.InventoryName)
+		xapp.Logger.Debug("%d. enbid: %s", index+1, enb.InventoryName)
 	}
 	return enbs, nil
 }
@@ -100,9 +102,9 @@ func (c *Control) getGnbList() ([]*xapp.RNIBNbIdentity, error) {
 		xapp.Logger.Error("err: %s", err)
 		return nil, err
 	}
-	xapp.Logger.Info("List of connected gNBs :")
+	xapp.Logger.Info("There are %d connected gNBs", len(gnbs))
 	for index, gnb := range gnbs {
-		xapp.Logger.Info("%d. gnbid : %s", index+1, gnb.InventoryName)
+		xapp.Logger.Debug("%d. gnbid : %s", index+1, gnb.InventoryName)
 	}
 	return gnbs, nil
 }
@@ -158,15 +160,15 @@ func encode_action_format1(plmn string, cellid string) clientmodel.ActionDefinit
 	//format1=[]int64{0,1,1,8,0,22,32,0,3,1,32,0,0,32,0,4,1,32,0,0,32,0,78,1,32,0,0,32,0,79,1,32,0,0,32,0,80,1,32,0,0,32,0,81,1,32,0,0,32,0,8,1,32,0,0,32,0,7,1,32,0,0,32,0,11,1,32,0,0,32,0,12,1,32,0,0,32,0,82,1,32,0,0,32,0,83,1,32,0,0,32,0,13,1,32,0,0,32,0,14,1,32,0,0,32,0,40,1,32,0,0,32,0,41,1,32,0,0,32,0,42,1,32,0,0,32,0,84,1,32,0,0,32,0,85,1,32,0,0,32,0,86,1,32,0,0,32,0,87,1,32,0,0,32,0,88,1,32,0,0,32,0,89,1,32,0,0,64,39,15,0}//assuming nr cells
 
 	//for simulation-by measName(supported in Viavi 1.4)
-	format1=[]int64{0,1,1,8,0,22,0,160,68,82,66,46,85,69,84,104,112,68,108,1,32,0,0,0,160,68,82,66,46,85,69,84,104,112,85,108,1,32,0,0,0,176,80,69,69,46,65,118,103,80,111,119,101,114,1,32,0,0,0,144,80,69,69,46,69,110,101,114,103,121,1,32,0,0,1,144,81,111,115,70,108,111,119,46,84,111,116,80,100,99,112,80,100,117,86,111,108,117,109,101,68,108,1,32,0,0,1,144,81,111,115,70,108,111,119,46,84,111,116,80,100,99,112,80,100,117,86,111,108,117,109,101,85,108,1,32,0,0,0,160,82,82,67,46,67,111,110,110,77,97,120,1,32,0,0,0,176,82,82,67,46,67,111,110,110,77,101,97,110,1,32,0,0,0,208,82,82,85,46,80,114,98,65,118,97,105,108,68,108,1,32,0,0,0,208,82,82,85,46,80,114,98,65,118,97,105,108,85,108,1,32,0,0,0,176,82,82,85,46,80,114,98,84,111,116,68,108,1,32,0,0,0,176,82,82,85,46,80,114,98,84,111,116,85,108,1,32,0,0,0,192,82,82,85,46,80,114,98,85,115,101,100,68,108,1,32,0,0,0,192,82,82,85,46,80,114,98,85,115,101,100,85,108,1,32,0,0,0,160,86,105,97,118,105,46,71,101,111,46,120,1,32,0,0,0,160,86,105,97,118,105,46,71,101,111,46,121,1,32,0,0,0,160,86,105,97,118,105,46,71,101,111,46,122,1,32,0,0,0,192,86,105,97,118,105,46,71,110,98,68,117,73,100,1,32,0,0,0,160,86,105,97,118,105,46,78,114,67,103,105,1,32,0,0,0,160,86,105,97,118,105,46,78,114,80,99,105,1,32,0,0,1,96,86,105,97,118,105,46,82,97,100,105,111,46,97,110,116,101,110,110,97,84,121,112,101,1,32,0,0,1,32,86,105,97,118,105,46,82,97,100,105,111,46,97,122,105,109,117,116,104,1,32,0,0,1,0,86,105,97,118,105,46,82,97,100,105,111,46,112,111,119,101,114,1,32,0,0,64,39,15,0}//assuming nr cells
+	format1 = []int64{0, 1, 1, 8, 0, 22, 0, 160, 68, 82, 66, 46, 85, 69, 84, 104, 112, 68, 108, 1, 32, 0, 0, 0, 160, 68, 82, 66, 46, 85, 69, 84, 104, 112, 85, 108, 1, 32, 0, 0, 0, 176, 80, 69, 69, 46, 65, 118, 103, 80, 111, 119, 101, 114, 1, 32, 0, 0, 0, 144, 80, 69, 69, 46, 69, 110, 101, 114, 103, 121, 1, 32, 0, 0, 1, 144, 81, 111, 115, 70, 108, 111, 119, 46, 84, 111, 116, 80, 100, 99, 112, 80, 100, 117, 86, 111, 108, 117, 109, 101, 68, 108, 1, 32, 0, 0, 1, 144, 81, 111, 115, 70, 108, 111, 119, 46, 84, 111, 116, 80, 100, 99, 112, 80, 100, 117, 86, 111, 108, 117, 109, 101, 85, 108, 1, 32, 0, 0, 0, 160, 82, 82, 67, 46, 67, 111, 110, 110, 77, 97, 120, 1, 32, 0, 0, 0, 176, 82, 82, 67, 46, 67, 111, 110, 110, 77, 101, 97, 110, 1, 32, 0, 0, 0, 208, 82, 82, 85, 46, 80, 114, 98, 65, 118, 97, 105, 108, 68, 108, 1, 32, 0, 0, 0, 208, 82, 82, 85, 46, 80, 114, 98, 65, 118, 97, 105, 108, 85, 108, 1, 32, 0, 0, 0, 176, 82, 82, 85, 46, 80, 114, 98, 84, 111, 116, 68, 108, 1, 32, 0, 0, 0, 176, 82, 82, 85, 46, 80, 114, 98, 84, 111, 116, 85, 108, 1, 32, 0, 0, 0, 192, 82, 82, 85, 46, 80, 114, 98, 85, 115, 101, 100, 68, 108, 1, 32, 0, 0, 0, 192, 82, 82, 85, 46, 80, 114, 98, 85, 115, 101, 100, 85, 108, 1, 32, 0, 0, 0, 160, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 120, 1, 32, 0, 0, 0, 160, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 121, 1, 32, 0, 0, 0, 160, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 122, 1, 32, 0, 0, 0, 192, 86, 105, 97, 118, 105, 46, 71, 110, 98, 68, 117, 73, 100, 1, 32, 0, 0, 0, 160, 86, 105, 97, 118, 105, 46, 78, 114, 67, 103, 105, 1, 32, 0, 0, 0, 160, 86, 105, 97, 118, 105, 46, 78, 114, 80, 99, 105, 1, 32, 0, 0, 1, 96, 86, 105, 97, 118, 105, 46, 82, 97, 100, 105, 111, 46, 97, 110, 116, 101, 110, 110, 97, 84, 121, 112, 101, 1, 32, 0, 0, 1, 32, 86, 105, 97, 118, 105, 46, 82, 97, 100, 105, 111, 46, 97, 122, 105, 109, 117, 116, 104, 1, 32, 0, 0, 1, 0, 86, 105, 97, 118, 105, 46, 82, 97, 100, 105, 111, 46, 112, 111, 119, 101, 114, 1, 32, 0, 0, 64, 39, 15, 0} //assuming nr cells
 	//for e2test
-	 // format1=[]int64{0,1,1,8,0,42,32,0,0,1,32,0,0,32,0,1,1,32,0,0,32,0,2,1,32,0,0,32,0,3,1,32,0,0,32,0,4,1,32,0,0,32,0,5,1,32,0,0,32,0,6,1,32,0,0,32,0,7,1,32,0,0,32,0,8,1,32,0,0,32,0,9,1,32,0,0,32,0,10,1,32,0,0,32,0,11,1,32,0,0,32,0,12,1,32,0,0,32,0,13,1,32,0,0,32,0,14,1,32,0,0,32,0,15,1,32,0,0,32,0,16,1,32,0,0,32,0,17,1,32,0,0,32,0,18,1,32,0,0,32,0,19,1,32,0,0,32,0,20,1,32,0,0,32,0,21,1,32,0,0,32,0,22,1,32,0,0,32,0,23,1,32,0,0,32,0,24,1,32,0,0,32,0,25,1,32,0,0,32,0,26,1,32,0,0,32,0,27,1,32,0,0,32,0,28,1,32,0,0,32,0,29,1,32,0,0,32,0,30,1,32,0,0,32,0,31,1,32,0,0,32,0,32,1,32,0,0,32,0,33,1,32,0,0,32,0,34,1,32,0,0,32,0,35,1,32,0,0,32,0,36,1,32,0,0,32,0,37,1,32,0,0,32,0,38,1,32,0,0,32,0,39,1,32,0,0,32,0,40,1,32,0,0,32,0,41,1,32,0,0,32,0,42,1,32,0,0,64,39,15,0}
+	// format1=[]int64{0,1,1,8,0,42,32,0,0,1,32,0,0,32,0,1,1,32,0,0,32,0,2,1,32,0,0,32,0,3,1,32,0,0,32,0,4,1,32,0,0,32,0,5,1,32,0,0,32,0,6,1,32,0,0,32,0,7,1,32,0,0,32,0,8,1,32,0,0,32,0,9,1,32,0,0,32,0,10,1,32,0,0,32,0,11,1,32,0,0,32,0,12,1,32,0,0,32,0,13,1,32,0,0,32,0,14,1,32,0,0,32,0,15,1,32,0,0,32,0,16,1,32,0,0,32,0,17,1,32,0,0,32,0,18,1,32,0,0,32,0,19,1,32,0,0,32,0,20,1,32,0,0,32,0,21,1,32,0,0,32,0,22,1,32,0,0,32,0,23,1,32,0,0,32,0,24,1,32,0,0,32,0,25,1,32,0,0,32,0,26,1,32,0,0,32,0,27,1,32,0,0,32,0,28,1,32,0,0,32,0,29,1,32,0,0,32,0,30,1,32,0,0,32,0,31,1,32,0,0,32,0,32,1,32,0,0,32,0,33,1,32,0,0,32,0,34,1,32,0,0,32,0,35,1,32,0,0,32,0,36,1,32,0,0,32,0,37,1,32,0,0,32,0,38,1,32,0,0,32,0,39,1,32,0,0,32,0,40,1,32,0,0,32,0,41,1,32,0,0,32,0,42,1,32,0,0,64,39,15,0}
 	format1 = append(format1, lol1...) //appending plmn
-        format1 = append(format1, lol2...) //appending cellid
+	format1 = append(format1, lol2...) //appending cellid
 	return format1
 }
 
-func encode_action_format2() clientmodel.ActionDefinition{
+func encode_action_format2() clientmodel.ActionDefinition {
 	var format2 []int64
 	format2 = []int64{0, 1, 0, 0, 0, 20, 0, 160, 68, 82, 66, 46, 85, 69, 84, 104, 112, 68, 108, 1, 0, 0, 0, 1, 64, 68, 82, 66, 46, 85, 69, 84, 104, 112, 85, 108, 1, 0, 0, 0, 1, 0, 71, 78, 66, 45, 68, 85, 45, 73, 68, 1, 0, 0, 0, 0, 160, 78, 82, 45, 67, 71, 73, 1, 0, 0, 0, 0, 160, 78, 82, 45, 80, 67, 73, 1, 0, 0, 0, 2, 192, 81, 111, 115, 70, 108, 111, 119, 46, 80, 100, 99, 112, 80, 100, 117, 86, 111, 108, 117, 109, 101, 68, 108, 1, 0, 0, 0, 2, 192, 81, 111, 115, 70, 108, 111, 119, 46, 80, 100, 99, 112, 80, 100, 117, 86, 111, 108, 117, 109, 101, 85, 108, 1, 0, 0, 0, 1, 64, 82, 82, 67, 46, 67, 111, 110, 110, 77, 97, 120, 1, 0, 0, 0, 1, 96, 82, 82, 67, 46, 67, 111, 110, 110, 77, 101, 97, 110, 1, 0, 0, 0, 1, 160, 82, 82, 85, 46, 80, 114, 98, 65, 118, 97, 105, 108, 68, 108, 1, 0, 0, 0, 1, 160, 82, 82, 85, 46, 80, 114, 98, 65, 118, 97, 105, 108, 85, 108, 1, 0, 0, 0, 1, 32, 82, 82, 85, 46, 80, 114, 98, 84, 111, 116, 1, 0, 0, 0, 1, 96, 82, 82, 85, 46, 80, 114, 98, 84, 111, 116, 68, 108, 1, 0, 0, 0, 1, 96, 82, 82, 85, 46, 80, 114, 98, 84, 111, 116, 85, 108, 1, 0, 0, 0, 1, 128, 82, 82, 85, 46, 80, 114, 98, 85, 115, 101, 100, 68, 108, 1, 0, 0, 0, 1, 128, 82, 82, 85, 46, 80, 114, 98, 85, 115, 101, 100, 85, 108, 1, 0, 0, 0, 1, 64, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 120, 1, 0, 0, 0, 1, 64, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 121, 1, 0, 0, 0, 1, 64, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 122, 1, 0, 0, 0, 2, 0, 86, 105, 97, 118, 105, 46, 82, 97, 100, 105, 111, 46, 112, 111, 119, 101, 114, 1, 0, 0, 0, 2, 64, 86, 105, 97, 118, 105, 46, 82, 97, 100, 105, 111, 46, 115, 101, 99, 116, 111, 114, 115, 1, 0, 0, 0, 0, 0}
 	//encode the variable part and append it to our array.
@@ -182,7 +184,7 @@ func encode_action_format3() clientmodel.ActionDefinition {
 	//variable part is not presetnt in action def format 3
 
 	//for simulation-by measName(supported in Viavi 1.4)
-	format3=[]int64{0,1,3,64,0,29,0,160,68,82,66,46,85,69,67,113,105,68,108,0,0,16,0,0,0,80,68,82,66,46,85,69,67,113,105,85,108,0,0,16,0,0,0,80,68,82,66,46,85,69,84,104,112,68,108,0,0,16,0,0,0,80,68,82,66,46,85,69,84,104,112,85,108,0,0,16,0,0,0,200,81,111,115,70,108,111,119,46,84,111,116,80,100,99,112,80,100,117,86,111,108,117,109,101,68,108,0,0,16,0,0,0,96,82,82,85,46,80,114,98,85,115,101,100,68,108,0,0,16,0,0,0,96,82,82,85,46,80,114,98,85,115,101,100,85,108,0,0,16,0,0,0,80,84,66,46,84,111,116,78,98,114,68,108,0,0,16,0,0,0,80,84,66,46,84,111,116,78,98,114,85,108,0,0,16,0,0,0,96,86,105,97,118,105,46,67,101,108,108,46,105,100,0,0,16,0,0,0,80,86,105,97,118,105,46,71,101,111,46,120,0,0,16,0,0,0,80,86,105,97,118,105,46,71,101,111,46,121,0,0,16,0,0,0,80,86,105,97,118,105,46,71,101,111,46,122,0,0,16,0,0,0,96,86,105,97,118,105,46,81,111,83,46,53,113,105,0,0,16,0,0,0,120,86,105,97,118,105,46,81,111,83,46,67,101,108,108,73,100,0,0,16,0,0,0,112,86,105,97,118,105,46,81,111,83,46,68,114,98,73,100,0,0,16,0,0,0,104,86,105,97,118,105,46,81,111,83,46,71,102,98,114,0,0,16,0,0,0,104,86,105,97,118,105,46,83,108,105,99,101,46,105,100,0,0,16,0,0,0,112,86,105,97,118,105,46,85,69,46,66,101,97,109,73,100,0,0,16,0,0,0,128,86,105,97,118,105,46,85,69,46,70,114,97,109,101,67,110,116,0,0,16,0,0,0,112,86,105,97,118,105,46,85,69,46,82,115,83,105,110,114,0,0,16,0,0,0,96,86,105,97,118,105,46,85,69,46,82,115,114,112,0,0,16,0,0,0,96,86,105,97,118,105,46,85,69,46,82,115,114,113,0,0,16,0,0,0,112,86,105,97,118,105,46,85,69,46,84,99,82,110,116,105,0,0,16,0,0,0,136,86,105,97,118,105,46,85,69,46,97,110,111,109,97,108,105,101,115,0,0,16,0,0,0,80,86,105,97,118,105,46,85,69,46,105,100,0,0,16,0,0,0,184,86,105,97,118,105,46,85,69,46,115,101,114,118,105,110,103,68,105,115,116,97,110,99,101,0,0,16,0,0,0,104,86,105,97,118,105,46,85,69,46,115,112,101,101,100,0,0,16,0,0,0,208,86,105,97,118,105,46,85,69,46,116,97,114,103,101,116,84,104,114,111,117,103,104,112,117,116,68,108,0,0,16,0,0,0,208,86,105,97,118,105,46,85,69,46,116,97,114,103,101,116,84,104,114,111,117,103,104,112,117,116,85,108,0,0,16,0,0,32,39,15}
+	format3 = []int64{0, 1, 3, 64, 0, 29, 0, 160, 68, 82, 66, 46, 85, 69, 67, 113, 105, 68, 108, 0, 0, 16, 0, 0, 0, 80, 68, 82, 66, 46, 85, 69, 67, 113, 105, 85, 108, 0, 0, 16, 0, 0, 0, 80, 68, 82, 66, 46, 85, 69, 84, 104, 112, 68, 108, 0, 0, 16, 0, 0, 0, 80, 68, 82, 66, 46, 85, 69, 84, 104, 112, 85, 108, 0, 0, 16, 0, 0, 0, 200, 81, 111, 115, 70, 108, 111, 119, 46, 84, 111, 116, 80, 100, 99, 112, 80, 100, 117, 86, 111, 108, 117, 109, 101, 68, 108, 0, 0, 16, 0, 0, 0, 96, 82, 82, 85, 46, 80, 114, 98, 85, 115, 101, 100, 68, 108, 0, 0, 16, 0, 0, 0, 96, 82, 82, 85, 46, 80, 114, 98, 85, 115, 101, 100, 85, 108, 0, 0, 16, 0, 0, 0, 80, 84, 66, 46, 84, 111, 116, 78, 98, 114, 68, 108, 0, 0, 16, 0, 0, 0, 80, 84, 66, 46, 84, 111, 116, 78, 98, 114, 85, 108, 0, 0, 16, 0, 0, 0, 96, 86, 105, 97, 118, 105, 46, 67, 101, 108, 108, 46, 105, 100, 0, 0, 16, 0, 0, 0, 80, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 120, 0, 0, 16, 0, 0, 0, 80, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 121, 0, 0, 16, 0, 0, 0, 80, 86, 105, 97, 118, 105, 46, 71, 101, 111, 46, 122, 0, 0, 16, 0, 0, 0, 96, 86, 105, 97, 118, 105, 46, 81, 111, 83, 46, 53, 113, 105, 0, 0, 16, 0, 0, 0, 120, 86, 105, 97, 118, 105, 46, 81, 111, 83, 46, 67, 101, 108, 108, 73, 100, 0, 0, 16, 0, 0, 0, 112, 86, 105, 97, 118, 105, 46, 81, 111, 83, 46, 68, 114, 98, 73, 100, 0, 0, 16, 0, 0, 0, 104, 86, 105, 97, 118, 105, 46, 81, 111, 83, 46, 71, 102, 98, 114, 0, 0, 16, 0, 0, 0, 104, 86, 105, 97, 118, 105, 46, 83, 108, 105, 99, 101, 46, 105, 100, 0, 0, 16, 0, 0, 0, 112, 86, 105, 97, 118, 105, 46, 85, 69, 46, 66, 101, 97, 109, 73, 100, 0, 0, 16, 0, 0, 0, 128, 86, 105, 97, 118, 105, 46, 85, 69, 46, 70, 114, 97, 109, 101, 67, 110, 116, 0, 0, 16, 0, 0, 0, 112, 86, 105, 97, 118, 105, 46, 85, 69, 46, 82, 115, 83, 105, 110, 114, 0, 0, 16, 0, 0, 0, 96, 86, 105, 97, 118, 105, 46, 85, 69, 46, 82, 115, 114, 112, 0, 0, 16, 0, 0, 0, 96, 86, 105, 97, 118, 105, 46, 85, 69, 46, 82, 115, 114, 113, 0, 0, 16, 0, 0, 0, 112, 86, 105, 97, 118, 105, 46, 85, 69, 46, 84, 99, 82, 110, 116, 105, 0, 0, 16, 0, 0, 0, 136, 86, 105, 97, 118, 105, 46, 85, 69, 46, 97, 110, 111, 109, 97, 108, 105, 101, 115, 0, 0, 16, 0, 0, 0, 80, 86, 105, 97, 118, 105, 46, 85, 69, 46, 105, 100, 0, 0, 16, 0, 0, 0, 184, 86, 105, 97, 118, 105, 46, 85, 69, 46, 115, 101, 114, 118, 105, 110, 103, 68, 105, 115, 116, 97, 110, 99, 101, 0, 0, 16, 0, 0, 0, 104, 86, 105, 97, 118, 105, 46, 85, 69, 46, 115, 112, 101, 101, 100, 0, 0, 16, 0, 0, 0, 208, 86, 105, 97, 118, 105, 46, 85, 69, 46, 116, 97, 114, 103, 101, 116, 84, 104, 114, 111, 117, 103, 104, 112, 117, 116, 68, 108, 0, 0, 16, 0, 0, 0, 208, 86, 105, 97, 118, 105, 46, 85, 69, 46, 116, 97, 114, 103, 101, 116, 84, 104, 114, 111, 117, 103, 104, 112, 117, 116, 85, 108, 0, 0, 16, 0, 0, 32, 39, 15}
 
 	//variable part is not presetnt in action def format 3
 
@@ -193,23 +195,22 @@ func encode_action_format3() clientmodel.ActionDefinition {
 }
 func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 	var l clientmodel.ActionsToBeSetup
-	link:="http://service-ricplt-e2mgr-http.ricplt.svc.cluster.local:3800/v1/nodeb/"
-	link=link+meid
-	tmpr,err := http.Get(link)
+	link := "http://service-ricplt-e2mgr-http.ricplt.svc.cluster.local:3800/v1/nodeb/"
+	link = link + meid
+	tmpr, err := http.Get(link)
 	if err != nil {
-      		log.Fatalln(err)
-      		return l
+		log.Fatalln(err)
+		return l
 	}
 	defer tmpr.Body.Close()
 	var resp E2mgrResponse
-	
-	err=json.NewDecoder(tmpr.Body).Decode(&resp)
-	if err != nil {
-                log.Fatalln(err)
-                return l
-        }
 
-	
+	err = json.NewDecoder(tmpr.Body).Decode(&resp)
+	if err != nil {
+		log.Fatalln(err)
+		return l
+	}
+
 	counter := 0
 	for i := 0; i < len(resp.Gnb.NodeConfigs); i++ {
 		if resp.Gnb.NodeConfigs[i].E2nodeComponentInterfaceType == "f1" {
@@ -221,7 +222,7 @@ func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 	base64Text := make([]byte, base64.StdEncoding.DecodedLen(len(tm)))
 	nl, _ := base64.StdEncoding.Decode(base64Text, []byte(tm))
 	message := string(base64Text[:nl])
-	
+
 	counter = 0
 	for i := 0; i < len(meid); i++ {
 		if meid[i] == '_' {
@@ -232,14 +233,14 @@ func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 			break
 		}
 	}
-	
+
 	ans := strings.ToUpper(meid[counter:len(meid)])
 	l1 := int64(len(message))
 	l2 := int64(len(ans))
 	var cells []string
 	for i := int64(0); i <= l1-l2; i++ {
 		if strings.Contains(message[i:i+l2], ans) {
-			Glob_cell[message[i:i+10]]=true
+			Glob_cell[message[i:i+10]] = true
 			cells = append(cells, message[i:i+10])
 			fmt.Println(message[i : i+10])
 		}
@@ -256,7 +257,7 @@ func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 			ActionID:         lol,
 			ActionType:       &actionType,
 			ActionDefinition: encode_action_format1(resp.GlobalNbId.PlmnId, cells[n-1]),
-			SubsequentAction:  &clientmodel.SubsequentAction{
+			SubsequentAction: &clientmodel.SubsequentAction{
 				SubsequentActionType: &subsequentActionType,
 				TimeToWait:           &timeToWait,
 			},
@@ -267,24 +268,24 @@ func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 	}
 	var tmp_act_id int64 = n
 	/*
-	n = 1
-	// for action def 2
-	for n <= ue {
-		var tmp int64 = tmp_act_id
-		var lol *int64 = &tmp
-		s := clientmodel.ActionToBeSetup{
-			ActionID:         lol,
-			ActionType:       &actionType,
-			ActionDefinition: encode_action_format2(),
-			SubsequentAction:  &clientmodel.SubsequentAction{
-				SubsequentActionType: &subsequentActionType,
-				TimeToWait:           &timeToWait,
-			},
+		n = 1
+		// for action def 2
+		for n <= ue {
+			var tmp int64 = tmp_act_id
+			var lol *int64 = &tmp
+			s := clientmodel.ActionToBeSetup{
+				ActionID:         lol,
+				ActionType:       &actionType,
+				ActionDefinition: encode_action_format2(),
+				SubsequentAction:  &clientmodel.SubsequentAction{
+					SubsequentActionType: &subsequentActionType,
+					TimeToWait:           &timeToWait,
+				},
+			}
+			l = append(l, &s)
+			tmp_act_id = tmp_act_id + 1
+			n = n + 1
 		}
-		l = append(l, &s)
-		tmp_act_id = tmp_act_id + 1
-		n = n + 1
-	}
 	*/
 
 	//for action def 3
@@ -294,7 +295,7 @@ func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 		ActionID:         lol,
 		ActionType:       &actionType,
 		ActionDefinition: encode_action_format3(),
-		SubsequentAction:  &clientmodel.SubsequentAction{
+		SubsequentAction: &clientmodel.SubsequentAction{
 			SubsequentActionType: &subsequentActionType,
 			TimeToWait:           &timeToWait,
 		},
@@ -307,35 +308,35 @@ func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 func (c Control) sendSubscription(meid string) {
 	//Create Subscription message and send it to RIC platform
 	xapp.Logger.Info("Sending subscription request for MEID: %v", meid)
-/*
-	subscritionParams := clientmodel.SubscriptionParams{
-		ClientEndpoint: &clientEndpoint,
-		Meid:           &meid,
-		RANFunctionID:  &funcId,
-		SubscriptionDetails: clientmodel.SubscriptionDetailsList{
-			&clientmodel.SubscriptionDetail{
-				EventTriggers: clientmodel.EventTriggerDefinition{
-					8,39,15,
-				},
-				XappEventInstanceID: &seqId,
-				ActionToBeSetupList: clientmodel.ActionsToBeSetup{
-					&clientmodel.ActionToBeSetup{
-						ActionID:   &actionId,
-						ActionType: &actionType,
-						ActionDefinition: clientmodel.ActionDefinition{
-							5678,
-						},
-						SubsequentAction: &clientmodel.SubsequentAction{
-							SubsequentActionType: &subsequentActionType,
-							TimeToWait:           &timeToWait,
+	/*
+		subscritionParams := clientmodel.SubscriptionParams{
+			ClientEndpoint: &clientEndpoint,
+			Meid:           &meid,
+			RANFunctionID:  &funcId,
+			SubscriptionDetails: clientmodel.SubscriptionDetailsList{
+				&clientmodel.SubscriptionDetail{
+					EventTriggers: clientmodel.EventTriggerDefinition{
+						8,39,15,
+					},
+					XappEventInstanceID: &seqId,
+					ActionToBeSetupList: clientmodel.ActionsToBeSetup{
+						&clientmodel.ActionToBeSetup{
+							ActionID:   &actionId,
+							ActionType: &actionType,
+							ActionDefinition: clientmodel.ActionDefinition{
+								5678,
+							},
+							SubsequentAction: &clientmodel.SubsequentAction{
+								SubsequentActionType: &subsequentActionType,
+								TimeToWait:           &timeToWait,
+							},
 						},
 					},
 				},
 			},
-		},
-	}
+		}
 	*/
-	
+
 	//8,39,15, for 10000 ms reporting period
 	subscritionParams := clientmodel.SubscriptionParams{
 		ClientEndpoint: &clientEndpoint,
@@ -344,7 +345,7 @@ func (c Control) sendSubscription(meid string) {
 		SubscriptionDetails: clientmodel.SubscriptionDetailsList{
 			&clientmodel.SubscriptionDetail{
 				EventTriggers: clientmodel.EventTriggerDefinition{
-					8,39,15,
+					8, 39, 15,
 				},
 				XappEventInstanceID: &seqId,
 				ActionToBeSetupList: encode_actionsToBeSetup(meid),
@@ -367,192 +368,188 @@ func (c Control) sendSubscription(meid string) {
 }
 
 func Test() (err error) {
-        var e2ap *E2ap
-        //var e2sm *E2sm
+	var e2ap *E2ap
+	//var e2sm *E2sm
 
-        //indicationMsg, err := e2ap.GetIndicationMessage(params.Payload)
+	//indicationMsg, err := e2ap.GetIndicationMessage(params.Payload)
 	indicationMsg, err := e2ap.GetIndicationM()
 
-        if err != nil {
-                xapp.Logger.Error("Failed to decode RIC Indication message: %v", err)
-                return
-        }
+	if err != nil {
+		xapp.Logger.Error("Failed to decode RIC Indication message: %v", err)
+		return
+	}
 
-        //log.Printf("RIC Indication message from {%s} received", params.Meid.RanName)
-        /*
-                indicationHdr, err := e2sm.GetIndicationHeader(indicationMsg.IndHeader)
-                if err != nil {
-                        xapp.Logger.Error("Failed to decode RIC Indication Header: %v", err)
-                        return
-                }
-        */
+	//log.Printf("RIC Indication message from {%s} received", params.Meid.RanName)
+	/*
+	   indicationHdr, err := e2sm.GetIndicationHeader(indicationMsg.IndHeader)
+	   if err != nil {
+	           xapp.Logger.Error("Failed to decode RIC Indication Header: %v", err)
+	           return
+	   }
+	*/
 
-        //Decoding message and put information into log
-        log.Printf("-----------RIC Indication Header-----------")
+	//Decoding message and put information into log
+	log.Printf("-----------RIC Indication Header-----------")
 	log.Printf("indicationMsg.IndHeader= %x", indicationMsg.IndHeader)
-/*	
-	buf := new(bytes.Buffer) //create my buffer
-	binary.Write(buf, binary.LittleEndian, indicationMsg.IndHeader)
-	log.Printf("binary Write buf= %x",buf )
-	b := buf.Bytes()
-	//str := buf.String()
-	//log.Printf(" buf Strin()= %s",str )
-	//cptr1:= unsafe.Pointer(C.CString(str))
-	cptr1:= unsafe.Pointer(&b[0])
-	defer C.free(cptr1)
-*/	
-        cptr1 := unsafe.Pointer(&indicationMsg.IndHeader[0])
-        decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(indicationMsg.IndHeader)))
+	/*
+		buf := new(bytes.Buffer) //create my buffer
+		binary.Write(buf, binary.LittleEndian, indicationMsg.IndHeader)
+		log.Printf("binary Write buf= %x",buf )
+		b := buf.Bytes()
+		//str := buf.String()
+		//log.Printf(" buf Strin()= %s",str )
+		//cptr1:= unsafe.Pointer(C.CString(str))
+		cptr1:= unsafe.Pointer(&b[0])
+		defer C.free(cptr1)
+	*/
+	cptr1 := unsafe.Pointer(&indicationMsg.IndHeader[0])
+	decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(indicationMsg.IndHeader)))
 	//decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(str)))
 	//decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(buf.Len()))
-        if decodedHdr == nil {
-                return errors.New("e2sm wrapper is unable to get IndicationHeader due to wrong or invalid input")
-        }
-        defer C.e2sm_free_ric_indication_header(decodedHdr)
-        IndHdrType := int32(decodedHdr.indicationHeader_formats.present)
-        if IndHdrType==0{
-                log.Printf("No Indication Header present")
-        }
-        if IndHdrType==1{
-                log.Printf("Indication Header format = %d",IndHdrType)
-                indHdrFormat1_C := *(**C.E2SM_KPM_IndicationHeader_Format1_t)(unsafe.Pointer(&decodedHdr.indicationHeader_formats.choice[0]))
-                //senderName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderName))
-		senderName_C:=indHdrFormat1_C.senderName
-                var senderName []byte
-                senderName = C.GoBytes(unsafe.Pointer(senderName_C.buf), C.int(senderName_C.size))
-                log.Printf("Sender Name = %x",senderName)
+	if decodedHdr == nil {
+		return errors.New("e2sm wrapper is unable to get IndicationHeader due to wrong or invalid input")
+	}
+	defer C.e2sm_free_ric_indication_header(decodedHdr)
+	IndHdrType := int32(decodedHdr.indicationHeader_formats.present)
+	if IndHdrType == 0 {
+		log.Printf("No Indication Header present")
+	}
+	if IndHdrType == 1 {
+		log.Printf("Indication Header format = %d", IndHdrType)
+		indHdrFormat1_C := *(**C.E2SM_KPM_IndicationHeader_Format1_t)(unsafe.Pointer(&decodedHdr.indicationHeader_formats.choice[0]))
+		//senderName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderName))
+		senderName_C := indHdrFormat1_C.senderName
+		var senderName []byte
+		senderName = C.GoBytes(unsafe.Pointer(senderName_C.buf), C.int(senderName_C.size))
+		log.Printf("Sender Name = %x", senderName)
 
-                //senderType_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderType))
-		senderType_C :=indHdrFormat1_C.senderType
-                //senderType []byte
-                senderType := C.GoBytes(unsafe.Pointer(senderType_C.buf), C.int(senderType_C.size))
-                log.Printf("Sender Type = %x",senderType)
+		//senderType_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderType))
+		senderType_C := indHdrFormat1_C.senderType
+		//senderType []byte
+		senderType := C.GoBytes(unsafe.Pointer(senderType_C.buf), C.int(senderType_C.size))
+		log.Printf("Sender Type = %x", senderType)
 
-                //vendorName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.vendorName))
-		vendorName_C :=indHdrFormat1_C.vendorName
-                //vendorName  []byte
-                vendorName := C.GoBytes(unsafe.Pointer(vendorName_C.buf), C.int(vendorName_C.size))
-                log.Printf("Vendor Name = %x",vendorName)
+		//vendorName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.vendorName))
+		vendorName_C := indHdrFormat1_C.vendorName
+		//vendorName  []byte
+		vendorName := C.GoBytes(unsafe.Pointer(vendorName_C.buf), C.int(vendorName_C.size))
+		log.Printf("Vendor Name = %x", vendorName)
 
+	}
 
-        }
-
-        /*
-                indMsg, err := e2sm.GetIndicationMessage(indicationMsg.IndMessage)
-                if err != nil {
-                        xapp.Logger.Error("Failed to decode RIC Indication Message: %v", err)
-                        return
-                }
-        */
-        log.Printf("-----------RIC Indication Message-----------")
-	log.Printf("indicationMsg.IndMessage= %x",indicationMsg.IndMessage)
-        cptr2 := unsafe.Pointer(&indicationMsg.IndMessage[0])
-        indicationmessage := C.e2sm_decode_ric_indication_message(cptr2, C.size_t(len(indicationMsg.IndMessage)))
-        if  indicationmessage == nil {
-                return errors.New("e2sm wrapper is unable to get IndicationMessage due to wrong or invalid input")
-        }
-        defer C.e2sm_free_ric_indication_message(indicationmessage)
-        IndMsgType := int32(indicationmessage.indicationMessage_formats.present)
-        if IndMsgType==1  {//parsing cell metrics
-                fmt.Printf(" parsing for cell metrics\n" )
-                indMsgFormat1_C := *(**C.E2SM_KPM_IndicationMessage_Format1_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
-                no_of_cell:=int32(indMsgFormat1_C .measData.list.count)
-		fmt.Printf(" \n No of cell = %d\n",no_of_cell )
+	/*
+	   indMsg, err := e2sm.GetIndicationMessage(indicationMsg.IndMessage)
+	   if err != nil {
+	           xapp.Logger.Error("Failed to decode RIC Indication Message: %v", err)
+	           return
+	   }
+	*/
+	log.Printf("-----------RIC Indication Message-----------")
+	log.Printf("indicationMsg.IndMessage= %x", indicationMsg.IndMessage)
+	cptr2 := unsafe.Pointer(&indicationMsg.IndMessage[0])
+	indicationmessage := C.e2sm_decode_ric_indication_message(cptr2, C.size_t(len(indicationMsg.IndMessage)))
+	if indicationmessage == nil {
+		return errors.New("e2sm wrapper is unable to get IndicationMessage due to wrong or invalid input")
+	}
+	defer C.e2sm_free_ric_indication_message(indicationmessage)
+	IndMsgType := int32(indicationmessage.indicationMessage_formats.present)
+	if IndMsgType == 1 { //parsing cell metrics
+		fmt.Printf(" parsing for cell metrics\n")
+		indMsgFormat1_C := *(**C.E2SM_KPM_IndicationMessage_Format1_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
+		no_of_cell := int32(indMsgFormat1_C.measData.list.count)
+		fmt.Printf(" \n No of cell = %d\n", no_of_cell)
 		//fmt.Println(no_of_cell)
-                for n := int32(0); n < no_of_cell; n++ {
-                                var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
-                                MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat1_C.measData.list.array)) + (uintptr)(int(n))*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
-                                no_of_cell_metrics:=int32(MeasurementDataItem_C.measRecord.list.count)
-                                var CellM CellMetricsEntry
-                                v := reflect.ValueOf(CellM)
-				fmt.Printf(" \n No of cell metrics = %d\n",no_of_cell_metrics)
-                                values := make(map[string]interface{}, v.NumField())
-                                //assert no_of_cell_metrics == v.NumField()   they both should be equal.
-                                for i := int32(0); i < no_of_cell_metrics; i++ {
-					//fmt.Println(i)
-                                        if v.Field(int(i)).CanInterface() {
-                                                        var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
-                                                        MeasurementRecordItem_C:=*(**C. MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(int(i))*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
-                                                        type_var:=int(MeasurementRecordItem_C.present)
-                                                        if type_var==1{
-                                                                var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                                                values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
-                                                                }else if type_var==2{
-                                var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                values[v.Type().Field(int(i)).Name]=float64(*cast_float)
-                                                        }else{
-                                                        fmt.Printf("Wrong Data Type")
-                                                }
-
-                                                }else {
-                                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
-                                                }
-                                        }//end of inner for loop
-
-
-				fmt.Println(values)
-				fmt.Printf("Parsing Cell Metric Done")
-				//c.writeCellMetrics_db(&values)//push cellmetrics map entry to database.
-                        }//end of outer for loop
-                        //end of if IndMsgType==1 , parsing cell metrics done
-
-        }  else if IndMsgType==2  { //parsing ue metrics
-
-                fmt.Printf(" parsing for UE metrics" )
-                indMsgFormat2_C := *(**C.E2SM_KPM_IndicationMessage_Format2_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
-                no_of_ue_metrics:=int32(indMsgFormat2_C .measData.list.count)
-		fmt.Printf(" \n No of ue metrics = %d\n",no_of_ue_metrics)
-
-                var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
-                MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(0)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
-
-                no_of_ue:=int32(MeasurementDataItem_C.measRecord.list.count)
-		fmt.Printf(" \n No of ue= %d\n",no_of_ue)
-                for n := int32(0); n < no_of_ue; n++ {
-                                var UeM UeMetricsEntry
-                                v := reflect.ValueOf(UeM)
-                                values := make(map[string]interface{}, v.NumField())
-                                //assert no_of_ue_metrics == v.NumField()   they both should be equal.
-                                for i := int32(0); i < no_of_ue_metrics; i++ {
+		for n := int32(0); n < no_of_cell; n++ {
+			var sizeof_MeasurementDataItem_t *C.MeasurementDataItem_t
+			MeasurementDataItem_C := *(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat1_C.measData.list.array)) + (uintptr)(int(n))*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+			no_of_cell_metrics := int32(MeasurementDataItem_C.measRecord.list.count)
+			var CellM CellMetricsEntry
+			v := reflect.ValueOf(CellM)
+			fmt.Printf(" \n No of cell metrics = %d\n", no_of_cell_metrics)
+			values := make(map[string]interface{}, v.NumField())
+			//assert no_of_cell_metrics == v.NumField()   they both should be equal.
+			for i := int32(0); i < no_of_cell_metrics; i++ {
 				//fmt.Println(i)
-                                if v.Field(int(i)).CanInterface() {
+				if v.Field(int(i)).CanInterface() {
+					var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+					MeasurementRecordItem_C := *(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(int(i))*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+					type_var := int(MeasurementRecordItem_C.present)
+					if type_var == 1 {
+						var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+						values[v.Type().Field(int(i)).Name] = int32(*cast_integer)
+					} else if type_var == 2 {
+						var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+						values[v.Type().Field(int(i)).Name] = float64(*cast_float)
+					} else {
+						fmt.Printf("Wrong Data Type")
+					}
 
-                                        var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
-                                        MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(i)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
-                                        var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
-                                        MeasurementRecordItem_C:=*(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(n)*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+				} else {
+					fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
+				}
+			} //end of inner for loop
 
-                                        type_var:=int(MeasurementRecordItem_C.present)
-                                if type_var==1{
-                                        var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                        values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
-                                }else if type_var==2{
-                                        var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                        values[v.Type().Field(int(i)).Name]=float64(*cast_float)
-
-                                        }else{
-                                        fmt.Printf("Wrong Data Type")
-                                }
-
-                        }else {
-                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
-                                }
-
-
-                                        }       //end of inner for loop
 			fmt.Println(values)
-			 fmt.Printf("Parsing UE Metric Done")
-			 //c.writeUeMetrics_db(&values)//push UEmetrics map entry to database.
+			fmt.Printf("Parsing Cell Metric Done")
+			//c.writeCellMetrics_db(&values)//push cellmetrics map entry to database.
+		} //end of outer for loop
+		//end of if IndMsgType==1 , parsing cell metrics done
 
-                        }// end of outer for loop
-        //parsing ue metrics done
-        }else{
-                fmt.Printf(" Invalid Indication message format" )
+	} else if IndMsgType == 2 { //parsing ue metrics
 
-        }
+		fmt.Printf(" parsing for UE metrics")
+		indMsgFormat2_C := *(**C.E2SM_KPM_IndicationMessage_Format2_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
+		no_of_ue_metrics := int32(indMsgFormat2_C.measData.list.count)
+		fmt.Printf(" \n No of ue metrics = %d\n", no_of_ue_metrics)
 
+		var sizeof_MeasurementDataItem_t *C.MeasurementDataItem_t
+		MeasurementDataItem_C := *(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(0)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
 
-        return nil
+		no_of_ue := int32(MeasurementDataItem_C.measRecord.list.count)
+		fmt.Printf(" \n No of ue= %d\n", no_of_ue)
+		for n := int32(0); n < no_of_ue; n++ {
+			var UeM UeMetricsEntry
+			v := reflect.ValueOf(UeM)
+			values := make(map[string]interface{}, v.NumField())
+			//assert no_of_ue_metrics == v.NumField()   they both should be equal.
+			for i := int32(0); i < no_of_ue_metrics; i++ {
+				//fmt.Println(i)
+				if v.Field(int(i)).CanInterface() {
+
+					var sizeof_MeasurementDataItem_t *C.MeasurementDataItem_t
+					MeasurementDataItem_C := *(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(i)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+					var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+					MeasurementRecordItem_C := *(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(n)*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+
+					type_var := int(MeasurementRecordItem_C.present)
+					if type_var == 1 {
+						var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+						values[v.Type().Field(int(i)).Name] = int32(*cast_integer)
+					} else if type_var == 2 {
+						var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+						values[v.Type().Field(int(i)).Name] = float64(*cast_float)
+
+					} else {
+						fmt.Printf("Wrong Data Type")
+					}
+
+				} else {
+					fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
+				}
+
+			} //end of inner for loop
+			fmt.Println(values)
+			fmt.Printf("Parsing UE Metric Done")
+			//c.writeUeMetrics_db(&values)//push UEmetrics map entry to database.
+
+		} // end of outer for loop
+		//parsing ue metrics done
+	} else {
+		fmt.Printf(" Invalid Indication message format")
+
+	}
+
+	return nil
 }
 
 func (c *Control) controlLoop() {
@@ -589,180 +586,176 @@ func (c *Control) handleIndication(params *xapp.RMRParams) (err error) {
 
 	//Decoding message and put information into log
 	//log.Printf("-----------RIC Indication Header-----------")
-        //log.Printf("indicationMsg.IndHeader= %x", indicationMsg.IndHeader)
-/*
-        buf := new(bytes.Buffer) //create my buffer
-        binary.Write(buf, binary.LittleEndian, indicationMsg.IndHeader)
-        log.Printf("binary Write buf= %x",buf )
-        b := buf.Bytes()
-        //str := buf.String()
-        //log.Printf(" buf Strin()= %s",str )
-        //cptr1:= unsafe.Pointer(C.CString(str))
-        cptr1:= unsafe.Pointer(&b[0])
-        defer C.free(cptr1)
-*/
-        cptr1 := unsafe.Pointer(&indicationMsg.IndHeader[0])
-        decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(indicationMsg.IndHeader)))
-        //decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(str)))
-        //decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(buf.Len()))
-        if decodedHdr == nil {
-                return errors.New("e2sm wrapper is unable to get IndicationHeader due to wrong or invalid input")
-        }
-        defer C.e2sm_free_ric_indication_header(decodedHdr)
-        IndHdrType := int32(decodedHdr.indicationHeader_formats.present)
-        if IndHdrType==0{
-                log.Printf("No Indication Header present")
-        }
-        if IndHdrType==1{
-                log.Printf("Indication Header format = %d",IndHdrType)
+	//log.Printf("indicationMsg.IndHeader= %x", indicationMsg.IndHeader)
+	/*
+	   buf := new(bytes.Buffer) //create my buffer
+	   binary.Write(buf, binary.LittleEndian, indicationMsg.IndHeader)
+	   log.Printf("binary Write buf= %x",buf )
+	   b := buf.Bytes()
+	   //str := buf.String()
+	   //log.Printf(" buf Strin()= %s",str )
+	   //cptr1:= unsafe.Pointer(C.CString(str))
+	   cptr1:= unsafe.Pointer(&b[0])
+	   defer C.free(cptr1)
+	*/
+	cptr1 := unsafe.Pointer(&indicationMsg.IndHeader[0])
+	decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(indicationMsg.IndHeader)))
+	//decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(len(str)))
+	//decodedHdr := C.e2sm_decode_ric_indication_header(cptr1, C.size_t(buf.Len()))
+	if decodedHdr == nil {
+		return errors.New("e2sm wrapper is unable to get IndicationHeader due to wrong or invalid input")
+	}
+	defer C.e2sm_free_ric_indication_header(decodedHdr)
+	IndHdrType := int32(decodedHdr.indicationHeader_formats.present)
+	if IndHdrType == 0 {
+		log.Printf("No Indication Header present")
+	}
+	if IndHdrType == 1 {
+		log.Printf("Indication Header format = %d", IndHdrType)
 		/*
-                indHdrFormat1_C := *(**C.E2SM_KPM_IndicationHeader_Format1_t)(unsafe.Pointer(&decodedHdr.indicationHeader_formats.choice[0]))
-                //senderName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderName))
-                senderName_C:=indHdrFormat1_C.senderName
-                var senderName []byte
-                senderName = C.GoBytes(unsafe.Pointer(senderName_C.buf), C.int(senderName_C.size))
-                //log.Printf("Sender Name = %x",senderName)
+		   indHdrFormat1_C := *(**C.E2SM_KPM_IndicationHeader_Format1_t)(unsafe.Pointer(&decodedHdr.indicationHeader_formats.choice[0]))
+		   //senderName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderName))
+		   senderName_C:=indHdrFormat1_C.senderName
+		   var senderName []byte
+		   senderName = C.GoBytes(unsafe.Pointer(senderName_C.buf), C.int(senderName_C.size))
+		   //log.Printf("Sender Name = %x",senderName)
 
-                //senderType_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderType))
-                senderType_C :=indHdrFormat1_C.senderType
-                //senderType []byte
-                senderType := C.GoBytes(unsafe.Pointer(senderType_C.buf), C.int(senderType_C.size))
-                //log.Printf("Sender Type = %x",senderType)
+		   //senderType_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.senderType))
+		   senderType_C :=indHdrFormat1_C.senderType
+		   //senderType []byte
+		   senderType := C.GoBytes(unsafe.Pointer(senderType_C.buf), C.int(senderType_C.size))
+		   //log.Printf("Sender Type = %x",senderType)
 
-                //vendorName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.vendorName))
-                vendorName_C :=indHdrFormat1_C.vendorName
-                //vendorName  []byte
-                vendorName := C.GoBytes(unsafe.Pointer(vendorName_C.buf), C.int(vendorName_C.size))
-                //log.Printf("Vendor Name = %x",vendorName)
+		   //vendorName_C := (*C.PrintableString_t)(unsafe.Pointer(indHdrFormat1_C.vendorName))
+		   vendorName_C :=indHdrFormat1_C.vendorName
+		   //vendorName  []byte
+		   vendorName := C.GoBytes(unsafe.Pointer(vendorName_C.buf), C.int(vendorName_C.size))
+		   //log.Printf("Vendor Name = %x",vendorName)
 		*/
 
-        }
+	}
 
-        /*
-                indMsg, err := e2sm.GetIndicationMessage(indicationMsg.IndMessage)
-                if err != nil {
-                        xapp.Logger.Error("Failed to decode RIC Indication Message: %v", err)
-                        return
-                }
-        */
-        //log.Printf("-----------RIC Indication Message-----------")
-        //log.Printf("indicationMsg.IndMessage= %x",indicationMsg.IndMessage)
-        cptr2 := unsafe.Pointer(&indicationMsg.IndMessage[0])
-        indicationmessage := C.e2sm_decode_ric_indication_message(cptr2, C.size_t(len(indicationMsg.IndMessage)))
-        if  indicationmessage == nil {
-                return errors.New("e2sm wrapper is unable to get IndicationMessage due to wrong or invalid input")
-        }
-        defer C.e2sm_free_ric_indication_message(indicationmessage)
-        IndMsgType := int32(indicationmessage.indicationMessage_formats.present)
-        if IndMsgType==1  {//parsing cell metrics
-                fmt.Printf(" parsing for cell metrics\n" )
-                indMsgFormat1_C := *(**C.E2SM_KPM_IndicationMessage_Format1_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
-                no_of_cell:=int32(indMsgFormat1_C .measData.list.count)
-                fmt.Printf(" \n No of cell = %d\n",no_of_cell )
-                //fmt.Println(no_of_cell)
-                for n := int32(0); n < no_of_cell; n++ {
-                                var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
-                                MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat1_C.measData.list.array)) + (uintptr)(int(n))*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
-                                no_of_cell_metrics:=int32(MeasurementDataItem_C.measRecord.list.count)
-                                var CellM CellMetricsEntry
-                                v := reflect.ValueOf(CellM)
-                                fmt.Printf(" \n No of cell metrics = %d\n",no_of_cell_metrics)
-                                values := make(map[string]interface{}, v.NumField())
-                                //assert no_of_cell_metrics == v.NumField()   they both should be equal.
-				if (int(no_of_cell_metrics) != v.NumField()){
-			 log.Printf("no_of_cell_metrics != v.NumField()")
- 			return errors.New("no_of_cell_metrics != v.NumField()")
+	/*
+	   indMsg, err := e2sm.GetIndicationMessage(indicationMsg.IndMessage)
+	   if err != nil {
+	           xapp.Logger.Error("Failed to decode RIC Indication Message: %v", err)
+	           return
+	   }
+	*/
+	//log.Printf("-----------RIC Indication Message-----------")
+	//log.Printf("indicationMsg.IndMessage= %x",indicationMsg.IndMessage)
+	cptr2 := unsafe.Pointer(&indicationMsg.IndMessage[0])
+	indicationmessage := C.e2sm_decode_ric_indication_message(cptr2, C.size_t(len(indicationMsg.IndMessage)))
+	if indicationmessage == nil {
+		return errors.New("e2sm wrapper is unable to get IndicationMessage due to wrong or invalid input")
+	}
+	defer C.e2sm_free_ric_indication_message(indicationmessage)
+	IndMsgType := int32(indicationmessage.indicationMessage_formats.present)
+	if IndMsgType == 1 { //parsing cell metrics
+		fmt.Printf(" parsing for cell metrics\n")
+		indMsgFormat1_C := *(**C.E2SM_KPM_IndicationMessage_Format1_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
+		no_of_cell := int32(indMsgFormat1_C.measData.list.count)
+		fmt.Printf(" \n No of cell = %d\n", no_of_cell)
+		//fmt.Println(no_of_cell)
+		for n := int32(0); n < no_of_cell; n++ {
+			var sizeof_MeasurementDataItem_t *C.MeasurementDataItem_t
+			MeasurementDataItem_C := *(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat1_C.measData.list.array)) + (uintptr)(int(n))*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+			no_of_cell_metrics := int32(MeasurementDataItem_C.measRecord.list.count)
+			var CellM CellMetricsEntry
+			v := reflect.ValueOf(CellM)
+			fmt.Printf(" \n No of cell metrics = %d\n", no_of_cell_metrics)
+			values := make(map[string]interface{}, v.NumField())
+			//assert no_of_cell_metrics == v.NumField()   they both should be equal.
+			if int(no_of_cell_metrics) != v.NumField() {
+				log.Printf("no_of_cell_metrics != v.NumField()")
+				return errors.New("no_of_cell_metrics != v.NumField()")
+			}
+			for i := int32(0); i < no_of_cell_metrics; i++ {
+				//fmt.Println(i)
+				if v.Field(int(i)).CanInterface() {
+					var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+					MeasurementRecordItem_C := *(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(int(i))*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+					type_var := int(MeasurementRecordItem_C.present)
+					if type_var == 1 {
+						var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+						values[v.Type().Field(int(i)).Name] = int32(*cast_integer)
+					} else if type_var == 2 {
+						var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+						values[v.Type().Field(int(i)).Name] = float64(*cast_float)
+					} else {
+						fmt.Printf("Wrong Data Type")
+					}
+
+				} else {
+					fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
 				}
-                                for i := int32(0); i < no_of_cell_metrics; i++ {
-                                        //fmt.Println(i)
-                                        if v.Field(int(i)).CanInterface() {
-                                                        var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
-                                                        MeasurementRecordItem_C:=*(**C. MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(int(i))*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
-                                                        type_var:=int(MeasurementRecordItem_C.present)
-                                                        if type_var==1{
-                                                                var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                                                values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
-                                                                }else if type_var==2{
-                                var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                values[v.Type().Field(int(i)).Name]=float64(*cast_float)
-                                                        }else{
-                                                        fmt.Printf("Wrong Data Type")
-                                                }
+			} //end of inner for loop
 
-                                                }else {
-                                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
-                                                }
-                                        }//end of inner for loop
+			fmt.Println(values)
+			fmt.Printf("Parsing Cell Metric Done")
+			c.writeCellMetrics_db(&values) //push cellmetrics map entry to database.
+		} //end of outer for loop
+		//end of if IndMsgType==1 , parsing cell metrics done
 
+	} else if IndMsgType == 2 { //parsing ue metrics
 
-                                fmt.Println(values)
-                                fmt.Printf("Parsing Cell Metric Done")
-                                c.writeCellMetrics_db(&values)//push cellmetrics map entry to database.
-                        }//end of outer for loop
-                        //end of if IndMsgType==1 , parsing cell metrics done
+		fmt.Printf(" parsing for UE metrics")
+		indMsgFormat2_C := *(**C.E2SM_KPM_IndicationMessage_Format2_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
+		no_of_ue_metrics := int32(indMsgFormat2_C.measData.list.count)
+		fmt.Printf(" \n No of ue metrics = %d\n", no_of_ue_metrics)
 
-        }  else if IndMsgType==2  { //parsing ue metrics
+		var sizeof_MeasurementDataItem_t *C.MeasurementDataItem_t
+		MeasurementDataItem_C := *(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(0)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
 
-                fmt.Printf(" parsing for UE metrics" )
-                indMsgFormat2_C := *(**C.E2SM_KPM_IndicationMessage_Format2_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
-                no_of_ue_metrics:=int32(indMsgFormat2_C .measData.list.count)
-                fmt.Printf(" \n No of ue metrics = %d\n",no_of_ue_metrics)
+		no_of_ue := int32(MeasurementDataItem_C.measRecord.list.count)
+		fmt.Printf(" \n No of ue= %d\n", no_of_ue)
+		for n := int32(0); n < no_of_ue; n++ {
+			var UeM UeMetricsEntry
+			v := reflect.ValueOf(UeM)
+			values := make(map[string]interface{}, v.NumField())
+			//assert no_of_ue_metrics == v.NumField()   they both should be equal.
+			if int(no_of_ue_metrics) != v.NumField() {
+				log.Printf("no_of_ue_metrics != v.NumField()")
+				return errors.New("no_of_ue_metrics != v.NumField()")
+			}
+			for i := int32(0); i < no_of_ue_metrics; i++ {
+				//fmt.Println(i)
+				if v.Field(int(i)).CanInterface() {
 
-                var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
-                MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(0)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+					var sizeof_MeasurementDataItem_t *C.MeasurementDataItem_t
+					MeasurementDataItem_C := *(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(i)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+					var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+					MeasurementRecordItem_C := *(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(n)*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
 
-                no_of_ue:=int32(MeasurementDataItem_C.measRecord.list.count)
-                fmt.Printf(" \n No of ue= %d\n",no_of_ue)
-                for n := int32(0); n < no_of_ue; n++ {
-                                var UeM UeMetricsEntry
-                                v := reflect.ValueOf(UeM)
-                                values := make(map[string]interface{}, v.NumField())
-                                //assert no_of_ue_metrics == v.NumField()   they both should be equal.
-				if (int(no_of_ue_metrics) != v.NumField()){
- 			 log.Printf("no_of_ue_metrics != v.NumField()")
-			 return errors.New("no_of_ue_metrics != v.NumField()")
+					type_var := int(MeasurementRecordItem_C.present)
+					if type_var == 1 {
+						var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+						values[v.Type().Field(int(i)).Name] = int32(*cast_integer)
+					} else if type_var == 2 {
+						var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
+						values[v.Type().Field(int(i)).Name] = float64(*cast_float)
+
+					} else {
+						fmt.Printf("Wrong Data Type")
+					}
+
+				} else {
+					fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
 				}
-                                for i := int32(0); i < no_of_ue_metrics; i++ {
-                                //fmt.Println(i)
-                                if v.Field(int(i)).CanInterface() {
 
-                                        var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
-                                        MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(i)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
-                                        var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
-                                        MeasurementRecordItem_C:=*(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(n)*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+			} //end of inner for loop
+			fmt.Println(values)
+			fmt.Printf("Parsing UE Metric Done")
+			c.writeUeMetrics_db(&values) //push UEmetrics map entry to database.
 
-                                        type_var:=int(MeasurementRecordItem_C.present)
-                                if type_var==1{
-                                        var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                        values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
-                                }else if type_var==2{
-                                        var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                        values[v.Type().Field(int(i)).Name]=float64(*cast_float)
+		} // end of outer for loop
+		//parsing ue metrics done
+	} else {
+		fmt.Printf(" Invalid Indication message format")
 
-                                        }else{
-                                        fmt.Printf("Wrong Data Type")
-                                }
+	}
 
-                        }else {
-                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
-                                }
-
-
-                                        }       //end of inner for loop
-                        fmt.Println(values)
-                         fmt.Printf("Parsing UE Metric Done")
-                         c.writeUeMetrics_db(&values)//push UEmetrics map entry to database.
-
-                        }// end of outer for loop
-        //parsing ue metrics done
-        }else{
-                fmt.Printf(" Invalid Indication message format" )
-
-        }
-
-
-        return nil
-
+	return nil
 
 }
 
@@ -883,7 +876,7 @@ func (c Control) xAppStartCB(d interface{}) {
 
 	}
 
-	fmt.Println("len of Glob_cell= ",len(Glob_cell))
+	fmt.Println("len of Glob_cell= ", len(Glob_cell))
 	fmt.Println("Glob_cell map = ", Glob_cell)
 
 	go c.controlLoop()
