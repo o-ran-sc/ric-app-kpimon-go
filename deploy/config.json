@@ -1,5 +1,6 @@
 {
   "xapp_name": "kpimon-go",
+  "name": kpimon-go"
   "version": "2.0.1",
   "containers": [
     {
