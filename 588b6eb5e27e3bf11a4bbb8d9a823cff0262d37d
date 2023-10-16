@@ -16,6 +16,23 @@
       "message": "recheck",
       "revId": "588b6eb5e27e3bf11a4bbb8d9a823cff0262d37d",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "e61c3532_37452b0c",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001476
+      },
+      "writtenOn": "2023-10-16T18:36:08Z",
+      "side": 1,
+      "message": "control/control.go:870:11: undefined: xapp.IsRegistered\n\u001b[0mThe command \u0027/bin/sh -c go build ./kpimon.go\u0027 returned a non-zero code: 2\nBuild step \u0027Execute shell\u0027 marked build as failurecontrol/control.go:870:11: undefined: xapp.IsRegistered\n\u001b[0mThe command \u0027/bin/sh -c go build ./kpimon.go\u0027 returned a non-zero code: 2\nBuild step \u0027Execute shell\u0027 marked build as failure",
+      "revId": "588b6eb5e27e3bf11a4bbb8d9a823cff0262d37d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
