@@ -15,6 +15,7 @@
 
 "local":
   "host": ":8086"
+"name": "kpimon-go"
 "logger":
   "level": 4
 "rmr":
