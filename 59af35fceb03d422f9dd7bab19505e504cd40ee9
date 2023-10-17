@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "24030807_edfd7a13",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1002313
+      },
+      "writtenOn": "2023-10-17T08:40:07Z",
+      "side": 1,
+      "message": "I update the change with the JIRA issue. Could you please take a look again?",
+      "revId": "59af35fceb03d422f9dd7bab19505e504cd40ee9",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    }
+  ]
+}
