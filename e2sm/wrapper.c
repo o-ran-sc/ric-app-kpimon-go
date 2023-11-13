@@ -198,7 +198,11 @@ E2SM_KPM_IndicationHeader_t* e2sm_decode_ric_indication_header(void *buffer, siz
 	//fprintf(stdout, "\nE2SM_KPM_IndicationHeader_t_size=%ld",sizeof(E2SM_KPM_IndicationHeader_t));
    //decode_result = uper_decode_complete(NULL, &asn_DEF_E2SM_KPM_IndicationHeader, (void **)&indHdr, (char*)buffer, buf_size);
    //ATS_ALIGNED_CANONICAL_PER
-    decode_result =asn_decode(0,ATS_ALIGNED_BASIC_PER,&asn_DEF_E2SM_KPM_IndicationHeader,(void **)&indHdr,buffer,buf_size);
+
+    decode_result =asn_decode(0,ATS_ALIGNED_BASIC_PER,
+								&asn_DEF_E2SM_KPM_IndicationHeader,
+								(void **)&indHdr,buffer,buf_size);
+	
     if(decode_result.code == RC_OK) {
 	// xer_fprint(stderr, &asn_DEF_E2SM_KPM_IndicationHeader, indHdr);
         return indHdr;

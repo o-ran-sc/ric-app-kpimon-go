@@ -9,10 +9,31 @@
 extern "C" {
 #endif
 
+#define min_val_ProcedureCode (0)
+#define max_val_ProcedureCode (255)
+#define min_val_ProtocolIE_ID (0)
+#define max_val_ProtocolIE_ID (65535)
 #define maxProtocolIEs (65535)
 #define maxnoofErrors (256)
+#define maxofE2nodeComponents (1024)
 #define maxofRANfunctionID (256)
 #define maxofRICactionID (16)
+#define maxofTNLA (32)
+#define maxofRICrequestID (1024)
+#define min_val_GNB_CU_UP_ID (0)
+#define max_val_GNB_CU_UP_ID (68719476735)
+#define min_val_GNB_DU_ID (0)
+#define max_val_GNB_DU_ID (68719476735)
+#define min_val_NGENB_DU_ID (0)
+#define max_val_NGENB_DU_ID (68719476735)
+#define min_val_RANfunctionID (0)
+#define max_val_RANfunctionID (4095)
+#define min_val_RANfunctionRevision (0)
+#define max_val_RANfunctionRevision (4095)
+#define min_val_RICactionID (0)
+#define max_val_RICactionID (255)
+#define min_val_RICindicationSN (0)
+#define max_val_RICindicationSN (65535)
 
 
 #ifdef __cplusplus
