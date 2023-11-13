@@ -7,7 +7,9 @@
  */
 #ifndef	ASN_INTERNAL_H
 #define	ASN_INTERNAL_H
+#ifndef __EXTENSIONS__
 #define __EXTENSIONS__          /* for Sun */
+#endif
 
 #include "asn_application.h"	/* Application-visible API */
 
@@ -18,6 +20,15 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+#if !defined(ASN_DISABLE_UPER_SUPPORT)
+#include <uper_decoder.h>
+#include <uper_encoder.h>
+#endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) */
+#if !defined(ASN_DISABLE_APER_SUPPORT)
+#include <aper_decoder.h>
+#include <aper_encoder.h>
+#endif  /* !defined(ASN_DISABLE_APER_SUPPORT) */
 
 /* Environment version might be used to avoid running with the old library */
 #define	ASN1C_ENVIRONMENT_VERSION	923	/* Compile-time version */
@@ -42,8 +53,7 @@ int get_asn1c_environment_version(void);	/* Run-time version */
  */
 #ifndef	ASN_DEBUG	/* If debugging code is not defined elsewhere... */
 #if	ASN_EMIT_DEBUG == 1	/* And it was asked to emit this code... */
-#if !defined(BELL_LABS) /* Bell Labs */
-  //#if __STDC_VERSION__ >= 199901L
+#if __STDC_VERSION__ >= 199901L
 #ifdef	ASN_THREAD_SAFE
 /* Thread safety requires sacrifice in output indentation:
  * Retain empty definition of ASN_DEBUG_INDENT_ADD. */
@@ -53,12 +63,6 @@ int get_asn1c_environment_version(void);	/* Run-time version */
 int asn_debug_indent;
 #define ASN_DEBUG_INDENT_ADD(i) do { asn_debug_indent += i; } while(0)
 #endif	/* ASN_THREAD_SAFE */
-#if defined(BELL_LABS) /* Bell Labs version */
-extern int logAsn1c(const char *filename, int linenumber, const char *format, ...);  
-#define	ASN_DEBUG(fmt, args...)	do {		        \
-    (void) logAsn1c(__FILE__, __LINE__, fmt, ##args);	\
-  } while(0)
-#else  
 #define	ASN_DEBUG(fmt, args...)	do {			\
 		int adi = asn_debug_indent;		\
 		while(adi--) fprintf(stderr, " ");	\
@@ -66,7 +70,6 @@ extern int logAsn1c(const char *filename, int linenumber, const char *format, ..
 		fprintf(stderr, " (%s:%d)\n",		\
 			__FILE__, __LINE__);		\
 	} while(0)
-#endif /* BELL_LABS */  
 #else	/* !C99 */
 void CC_PRINTFLIKE(1, 2) ASN_DEBUG_f(const char *fmt, ...);
 #define	ASN_DEBUG	ASN_DEBUG_f
@@ -133,7 +136,31 @@ asn__format_to_callback(
 /*
  * Check stack against overflow, if limit is set.
  */
+
+/* Since GCC 13, AddressSanitizer started defaulting to
+* ASAN_OPTIONS="detect_stack_use_after_return=1", which makes this check
+* fail due to apparently jumping stack pointers.
+* Hence, disable this check if building with ASan, as documented in:
+* GCC: https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
+* Clang: https://clang.llvm.org/docs/AddressSanitizer.html#conditional-compilation-with-has-feature-address-sanitizer
+*/
+#if defined(__SANITIZE_ADDRESS__)
+	#define ASN__SANITIZE_ENABLED 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+	#define ASN__SANITIZE_ENABLED 1
+#endif
+#endif
+
 #define	ASN__DEFAULT_STACK_MAX	(30000)
+
+#if defined(ASN__SANITIZE_ENABLED) || defined(ASN_DISABLE_STACK_OVERFLOW_CHECK)
+static int CC_NOTUSED
+ASN__STACK_OVERFLOW_CHECK(const asn_codec_ctx_t *ctx) {
+   (void)ctx;
+   return 0;
+}
+#else
 static int CC_NOTUSED
 ASN__STACK_OVERFLOW_CHECK(const asn_codec_ctx_t *ctx) {
 	if(ctx && ctx->max_stack_size) {
@@ -151,6 +178,7 @@ ASN__STACK_OVERFLOW_CHECK(const asn_codec_ctx_t *ctx) {
 	}
 	return 0;
 }
+#endif
 
 #ifdef	__cplusplus
 }
