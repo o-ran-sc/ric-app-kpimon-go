@@ -5,11 +5,9 @@ package control
 #cgo CFLAGS: -I/usr/local/include/e2sm
 */
 import "C"
-
 import (
 	"unsafe"
 )
-
 import (
 	"context"
 	"encoding/json"
@@ -46,6 +44,8 @@ var (
 	clientEndpoint       = clientmodel.SubscriptionParamsClientEndpoint{Host: "service-ricxapp-kpimon-go-http.ricxapp", HTTPPort: &hPort, RMRPort: &rPort}
 )
 var Glob_cell = make(map[string]bool)
+var ranUeKpi = make(map[string][]string)
+var ranCellKpi =  make(map[string][]string)
 func (c Control) Consume(msg *xapp.RMRParams) error {
 	id := xapp.Rmr.GetRicMessageName(msg.Mtype)
 	xapp.Logger.Info(
@@ -922,10 +922,65 @@ func (c *Control) writeCellMetrics_db(cellMetrics *map[string]interface{}) {
 }
 
 func (c Control) xAppStartCB(d interface{}) {
-	xapp.Logger.Info("In callback KPI monitor xApp ...")
+		xapp.Logger.Info("In callback KPI monitor xApp ...")
 
-	// Get eNodeB list
-	nbList := c.getnbList()
+		//ranUeKpi ranCellKpi	
+		// Get eNodeB list
+		nbList := c.getnbList()
+
+	        for _, nb := range nbList {
+                if nb.ConnectionStatus == 1 {
+                        xapp.Logger.Info("Building ranCellKp for %v", nb.InventoryName)
+                        link:="http://service-ricplt-e2mgr-http.ricplt.svc.cluster.local:3800/v1/nodeb/"
+			link=link+nb.InventoryName
+			tmpr,err := http.Get(link)
+			if err != nil {
+      				log.Fatalln(err)
+      				panic("Unable to build ranCellKpi")
+			}
+			defer tmpr.Body.Close()
+        		var resp E2mgrResponse
+
+        		err=json.NewDecoder(tmpr.Body).Decode(&resp)
+        		if err != nil {
+                		log.Fatalln(err)
+				panic("Unable to build ranCellKpi")
+
+        		}
+        		counter:=0
+        		//RanFunctionId=2 for kpm in viavi
+        		for i := 0; i < len(resp.Gnb.RanFunctions); i++ {
+                		if resp.Gnb.RanFunctions[i].RanFunctionId  == 2 {
+                        		counter = i
+                        		break
+                		}
+        		}
+        		cString := C.CString(resp.Gnb.RanFunctions[counter].RanFunctionDefinition)
+        		defer C.free(unsafe.Pointer(cString)) // Free the allocated C string when done
+			result:=C.buildRanCellUeKpi(cString)
+			
+			ueSlice := make([]string, result.ueKpiSize)
+			
+			for _, v := range unsafe.Slice(result.ueKpi, result.ueKpiSize) {
+    				ueSlice = append(ueSlice, C.GoString(v))
+			}
+			ranUeKpi[nb.InventoryName]=ueSlice
+
+			cellSlice := make([]string, result.cellKpiSize)
+
+                        for _, v := range unsafe.Slice(result.cellKpi, result.cellKpiSize) {
+                                cellSlice = append(cellSlice, C.GoString(v))
+                        }
+                        ranCellKpi[nb.InventoryName]=cellSlice
+
+
+			//C.freeMemorydRanCellUeKpi(result)
+
+
+                }
+
+        }
+
 
 	// Send subscription request to connected NodeB
 	for _, nb := range nbList {

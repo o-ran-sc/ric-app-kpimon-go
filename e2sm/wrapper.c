@@ -9,7 +9,115 @@ static int write_out(const void *buffer, size_t size, void *app_key) {
         return (wrote == size) ? 0 :-1;
 }
 */
+ranCellUeKpi_t buildRanCellUeKpi(const char *hex_values){
+        int BUFFER_SIZE=10240;
+        // Calculate the length of the hex string
+        size_t hex_len = strlen(hex_values);
 
+        // Allocate memory for a char array to store the hex values
+        char *hex_buffer = (char *)malloc(hex_len / 2 + 1); // Each byte is represented by 2 characters, +1 for null terminator
+	ranCellUeKpi_t res;
+        if (hex_buffer == NULL) {
+                fprintf(stderr, "Memory allocation failed\n");
+                return res;
+        }
+
+        // Convert the hex string to binary data
+        for (size_t i = 0; i < hex_len; i += 2) {
+                char byte[3] = {hex_values[i], hex_values[i + 1], '\0'};
+                hex_buffer[i / 2] = (char)strtol(byte, NULL, 16);
+        }
+
+        // Null-terminate the char array
+        hex_buffer[hex_len / 2] = '\0';
+
+        // Now hex_buffer contains the binary data corresponding to the hex values
+
+        // Print the result
+        printf("Hex values as a string: %s\n", hex_buffer);
+        char **name_format1;
+        char **name_format3;
+        int sz1=0;
+        int sz3=0;
+
+        E2SM_KPM_RANfunction_Description_t * e2smKpmRanFunctDescrip=(E2SM_KPM_RANfunction_Description_t * )calloc(1,sizeof(E2SM_KPM_RANfunction_Description_t ));
+
+        enum asn_transfer_syntax syntax;
+
+        syntax = ATS_ALIGNED_BASIC_PER;
+
+        asn_dec_rval_t rval =  asn_decode(NULL, syntax, &asn_DEF_E2SM_KPM_RANfunction_Description, (void**)&e2smKpmRanFunctDescrip, hex_buffer, hex_len);
+
+        if(rval.code == RC_OK)
+        {
+                printf( "[INFO] E2SM KPM RAN Function Description decode successfull rval.code = %d \n",rval.code);
+
+                asn_fprint(stdout, &asn_DEF_E2SM_KPM_RANfunction_Description, e2smKpmRanFunctDescrip);
+
+                for(int i=0; i< e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.count; i++){
+
+                        if(e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.array[i]->ric_ActionFormat_Type==1){
+                                sz1=e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.array[i]->measInfo_Action_List.list.count;
+                                name_format1=(char **)malloc(sz1*sizeof(char *));
+                                for(int j=0;j<sz1;j++){
+                                        size_t bufsize=e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.array[i]->measInfo_Action_List.list.array[j]->measName.size;
+                                        name_format1[j]=(char*)malloc(bufsize);
+                                        name_format1[j]=e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.array[i]->measInfo_Action_List.list.array[j]->measName.buf;
+
+                                }
+
+                        }
+
+                        if(e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.array[i]->ric_ActionFormat_Type==3){
+                                sz3=e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.array[i]->measInfo_Action_List.list.count;
+                                name_format3=(char **)malloc(sz3*sizeof(char *));
+                                for(int j=0;j<sz3;j++){
+                                        size_t bufsize=e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.array[i]->measInfo_Action_List.list.array[j]->measName.size;
+                                        name_format3[j]=(char*)malloc(bufsize);
+                                        name_format3[j]=e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.array[i]->measInfo_Action_List.list.array[j]->measName.buf;
+
+                                }
+
+                        }
+
+
+
+                }
+
+
+        }
+        else
+        {
+                 printf("[INFO] E2SM KPM RAN Function Description decode failed rval.code = %d \n", rval.code);
+        }
+
+	res.ueKpi=name_format3;
+	res.cellKpi=name_format1;
+	res.ueKpiSize= sz3;
+	res.cellKpiSize= sz1 ;
+	return res;
+
+}
+void freeMemorydRanCellUeKpi(ranCellUeKpi_t res){
+	if (res.cellKpi !=NULL ){
+
+	 	for(int i=0; i<res.cellKpiSize;i++){
+                	free(res.cellKpi[i]);
+        	}
+        	
+		free(res.cellKpi);
+	}
+	
+	if(res.ueKpi!=NULL){
+        	for(int i=0; i<res.ueKpiSize;i++){
+                	free(res.ueKpi[i]);
+        	}
+		free(res.ueKpi);
+	}
+
+
+
+}
 //determine 
 //1 for format1 by id, 2 for format1 by name , 3 for format3 by id, 4 for format3 by name
 struct encode_act_Def_result encode_action_Definition(const char *hex_values, int determine){

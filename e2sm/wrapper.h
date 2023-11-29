@@ -102,9 +102,20 @@ typedef struct encode_act_Def_result{
 	int * array;
 	int length;
 } encode_act_Def_result_t;
+
+typedef struct ranCellUeKpi{
+        char ** ueKpi;
+        char ** cellKpi;
+	int ueKpiSize;
+	int cellKpiSize;
+} ranCellUeKpi_t;
+
 ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, size_t event_trigger_count, long *RT_periods);
+
 //ssize_t e2sm_encode_ric_action_definition(void *buffer, size_t buf_size, long action_Def_count, long meas_ID, long ric_style_type, long GR_periods, Plm plm, Nrc nRc);
 //
+
+ranCellUeKpi_t buildRanCellUeKpi(const char *hex_values);
 
 struct encode_act_Def_result encode_action_Definition(const char *hex_values, int determine);
 
