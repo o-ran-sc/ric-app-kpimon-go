@@ -52,6 +52,9 @@
 #include<MeasurementCondList.h>
 #include<MeasurementCondItem.h>
 #include<MatchingCondItem.h>
+#include<E2SM-KPM-RANfunction-Description.h>
+#include<RIC-ReportStyle-Item.h>
+#include<MeasurementInfo-Action-Item.h>
 
 #include <MeasurementTypeID.h>
 #include <LabelInfoItem.h>
@@ -93,9 +96,26 @@ typedef struct Nrc {
 	int size;
 	int bits_unused;
 } Nrc;
+
 */
+typedef struct encode_act_Def_result{
+	int * array;
+	int length;
+} encode_act_Def_result_t;
 ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, size_t event_trigger_count, long *RT_periods);
 //ssize_t e2sm_encode_ric_action_definition(void *buffer, size_t buf_size, long action_Def_count, long meas_ID, long ric_style_type, long GR_periods, Plm plm, Nrc nRc);
+//
+
+struct encode_act_Def_result encode_action_Definition(const char *hex_values, int determine);
+
+size_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, size_t *buf_size, const char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR);
+
+size_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR);
+
+size_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, size_t *buf_size, char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod);
+
+size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod);
+
 E2SM_KPM_IndicationHeader_t* e2sm_decode_ric_indication_header(void *buffer, size_t buf_size);
 void e2sm_free_ric_indication_header(E2SM_KPM_IndicationHeader_t* indHdr);
 E2SM_KPM_IndicationMessage_t* e2sm_decode_ric_indication_message(void *buffer, size_t buf_size);
