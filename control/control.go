@@ -313,9 +313,9 @@ func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 
 	var n int64 = 1
 	cells:=Glob_Ran_cell[meid]
-	fmt.Println("len of Tonga cells= ",len(cells))
-        fmt.Println("Tonga cells = ", cells)
-	fmt.Println("Tonga  = ", Glob_Ran_cell)
+	//fmt.Println("len of Tonga cells= ",len(cells))
+        //fmt.Println("Tonga cells = ", cells)
+	//fmt.Println("Tonga  = ", Glob_Ran_cell)
 
 	var tempCells []string
 	for _, ele:=range cells{
@@ -323,8 +323,8 @@ func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 			tempCells =append(tempCells,ele)
 		}
 	}
-	fmt.Println("len of Tonga tmep cells= ",len(tempCells))
-        fmt.Println("Tonga temp cells = ", tempCells)
+	//fmt.Println("len of Tonga tmep cells= ",len(tempCells))
+        //fmt.Println("Tonga temp cells = ", tempCells)
 
 	//var ue int64 = 1 //get no of ue connected to du(if required)
 
@@ -745,34 +745,45 @@ func (c *Control) handleIndication(params *xapp.RMRParams) (err error) {
                                 var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
                                 MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat1_C.measData.list.array)) + (uintptr)(int(n))*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
                                 no_of_cell_metrics:=int32(MeasurementDataItem_C.measRecord.list.count)
-                                var CellM CellMetricsEntry
-                                v := reflect.ValueOf(CellM)
+                                //var CellM CellMetricsEntry
+                                //v := reflect.ValueOf(CellM)
                                 fmt.Printf(" \n No of cell metrics = %d\n",no_of_cell_metrics)
-                                values := make(map[string]interface{}, v.NumField())
+                                //values := make(map[string]interface{}, v.NumField())
+				values := make(map[string]interface{})
+				CellKpi:=ranCellKpi[params.Meid.RanName]
+				var tmpCellKpi []string
+        			for _, ele:=range CellKpi{
+                		if ele!=""{
+                        			tmpCellKpi =append(tmpCellKpi,ele)
+                			}
+        			}
+
                                 //assert no_of_cell_metrics == v.NumField()   they both should be equal.
-				if (int(no_of_cell_metrics) != v.NumField()){
-			 log.Printf("no_of_cell_metrics != v.NumField()")
- 			return errors.New("no_of_cell_metrics != v.NumField()")
+				if (int(no_of_cell_metrics) != len(tmpCellKpi)){
+			 log.Printf("no_of_cell_metrics !=  len(tmpCellKpi)")
+ 			return errors.New("no_of_cell_metrics  !=len(tmpCellKpi)")
 				}
                                 for i := int32(0); i < no_of_cell_metrics; i++ {
                                         //fmt.Println(i)
-                                        if v.Field(int(i)).CanInterface() {
+                                        //if v.Field(int(i)).CanInterface() {
                                                         var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
                                                         MeasurementRecordItem_C:=*(**C. MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(int(i))*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
                                                         type_var:=int(MeasurementRecordItem_C.present)
                                                         if type_var==1{
                                                                 var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                                                values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
+                                                                //values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
+								values[tmpCellKpi[int(i)]]=int32(*cast_integer)
                                                                 }else if type_var==2{
                                 var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                values[v.Type().Field(int(i)).Name]=float64(*cast_float)
+                                //values[v.Type().Field(int(i)).Name]=float64(*cast_float)
+				values[tmpCellKpi[int(i)]]=float64(*cast_float)
                                                         }else{
                                                         fmt.Printf("Wrong Data Type")
                                                 }
 
-                                                }else {
-                                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
-                                                }
+                                               // }else {
+                                                //fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
+                                                //}
                                         }//end of inner for loop
 
 
@@ -786,47 +797,61 @@ func (c *Control) handleIndication(params *xapp.RMRParams) (err error) {
 
                 fmt.Printf(" parsing for UE metrics" )
                 indMsgFormat2_C := *(**C.E2SM_KPM_IndicationMessage_Format2_t)(unsafe.Pointer(&indicationmessage.indicationMessage_formats.choice[0]))
-                no_of_ue_metrics:=int32(indMsgFormat2_C .measData.list.count)
-                fmt.Printf(" \n No of ue metrics = %d\n",no_of_ue_metrics)
+                //no_of_ue_metrics:=int32(indMsgFormat2_C .measData.list.count)
+                //fmt.Printf(" \n No of ue metrics = %d\n",no_of_ue_metrics)
 
                 var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
                 MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(0)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+		UeKpi:=ranUeKpi[params.Meid.RanName]
+                                var tmpUeKpi []string
+                                for _, ele:=range UeKpi{
+                                if ele!=""{
+                                                tmpUeKpi =append(tmpUeKpi,ele)
+                                        }
+                                }
 
-                no_of_ue:=int32(MeasurementDataItem_C.measRecord.list.count)
-                fmt.Printf(" \n No of ue= %d\n",no_of_ue)
+                
+		no_of_ue:=int32(MeasurementDataItem_C.measRecord.list.count)/int32(len(tmpUeKpi))
+                no_of_ue_metrics:=int32(len(tmpUeKpi))
+		fmt.Printf(" \n No of ue= %d\n",no_of_ue)
+
                 for n := int32(0); n < no_of_ue; n++ {
-                                var UeM UeMetricsEntry
-                                v := reflect.ValueOf(UeM)
-                                values := make(map[string]interface{}, v.NumField())
+                                //var UeM UeMetricsEntry
+                                //v := reflect.ValueOf(UeM)
+                                //values := make(map[string]interface{}, v.NumField())
+				values := make(map[string]interface{})
                                 //assert no_of_ue_metrics == v.NumField()   they both should be equal.
-				if (int(no_of_ue_metrics) != v.NumField()){
- 			 log.Printf("no_of_ue_metrics != v.NumField()")
-			 return errors.New("no_of_ue_metrics != v.NumField()")
-				}
+				//if (int(no_of_ue_metrics) != v.NumField()){
+ 			 //log.Printf("no_of_ue_metrics != v.NumField()")
+			 //return errors.New("no_of_ue_metrics != v.NumField()")
+				//}
                                 for i := int32(0); i < no_of_ue_metrics; i++ {
                                 //fmt.Println(i)
-                                if v.Field(int(i)).CanInterface() {
+                                //if v.Field(int(i)).CanInterface() {
 
-                                        var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
-                                        MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(i)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
-                                        var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
-                                        MeasurementRecordItem_C:=*(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(n)*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+                                        //var sizeof_MeasurementDataItem_t  *C.MeasurementDataItem_t
+                                        //MeasurementDataItem_C:=*(**C.MeasurementDataItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(indMsgFormat2_C.measData.list.array)) + (uintptr)(i)*unsafe.Sizeof(sizeof_MeasurementDataItem_t)))
+
+					var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+                                        MeasurementRecordItem_C:=*(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(n+(i*no_of_ue))*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
+                                        //var sizeof_MeasurementRecordItem_t *C.MeasurementRecordItem_t
+                                        //MeasurementRecordItem_C:=*(**C.MeasurementRecordItem_t)(unsafe.Pointer(uintptr(unsafe.Pointer(MeasurementDataItem_C.measRecord.list.array)) + (uintptr)(n)*unsafe.Sizeof(sizeof_MeasurementRecordItem_t)))
 
                                         type_var:=int(MeasurementRecordItem_C.present)
                                 if type_var==1{
                                         var cast_integer *C.long = (*C.long)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                        values[v.Type().Field(int(i)).Name]=int32(*cast_integer)
+                                        values[tmpUeKpi[int(i)]]=int32(*cast_integer)
                                 }else if type_var==2{
                                         var cast_float *C.double = (*C.double)(unsafe.Pointer(&MeasurementRecordItem_C.choice[0]))
-                                        values[v.Type().Field(int(i)).Name]=float64(*cast_float)
+                                        values[tmpUeKpi[int(i)]]=float64(*cast_float)
 
                                         }else{
                                         fmt.Printf("Wrong Data Type")
                                 }
 
-                        }else {
-                                fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
-                                }
+                       // }else {
+                               // fmt.Printf("sorry you have a unexported field (lower case) value you are trying to sneak past. Can not allow it: %v\n", v.Type().Field(int(i)).Name)
+                               // }
 
 
                                         }       //end of inner for loop
@@ -915,27 +940,41 @@ func (c *Control) queryCellReports() {
 */
 func (c *Control) writeUeMetrics_db(ueMetrics *map[string]interface{}) {
 	writeAPI := c.client.WriteAPIBlocking("my-org", "kpimon")
+	/*
 	ueMetricsJSON, err := json.Marshal(ueMetrics)
 	if err != nil {
 		xapp.Logger.Error("Marshal UE Metrics failed!")
 	}
+	
 	p := influxdb2.NewPointWithMeasurement("UeMetrics").
 		AddField("UE Metrics", ueMetricsJSON).
 		SetTime(time.Now())
+	*/
+	p := influxdb2.NewPointWithMeasurement("UeMetrics").SetTime(time.Now())
+	for key, value := range *ueMetrics {
+       		p = p.AddField(key, value)
+   	}
+
 	writeAPI.WritePoint(context.Background(), p)
 	xapp.Logger.Info("Wrote UE Metrics to InfluxDB")
 }
 
 func (c *Control) writeCellMetrics_db(cellMetrics *map[string]interface{}) {
 	writeAPI := c.client.WriteAPIBlocking("my-org", "kpimon")
+	/*
 	cellMetricsJSON, er := json.Marshal(cellMetrics)
 	if er != nil {
 		xapp.Logger.Error("Marshal Cell Metrics failed!")
 	}
+	
 	p := influxdb2.NewPointWithMeasurement("cellMetrics").
 		AddField("Cell Metrics", cellMetricsJSON).
 		SetTime(time.Now())
-
+	*/
+	p := influxdb2.NewPointWithMeasurement("cellMetrics").SetTime(time.Now())
+	for key, value := range *cellMetrics {
+                p = p.AddField(key, value)
+        }
 	writeAPI.WritePoint(context.Background(), p)
 	xapp.Logger.Info("Wrote Cell Metrics to InfluxDB")
 }
@@ -984,8 +1023,8 @@ func (c Control) xAppStartCB(d interface{}) {
     				ueSlice = append(ueSlice, C.GoString(v))
 			}
 			ranUeKpi[nb.InventoryName]=ueSlice
-			fmt.Println("len of ranUeKpi= ",len(ranUeKpi))
-        		fmt.Println("ranUeKpi map = ", ranUeKpi)
+			//fmt.Println("len of ranUeKpi= ",len(ranUeKpi))
+        		//fmt.Println("ranUeKpi map = ", ranUeKpi)
 
 
 			cellSlice := make([]string, result.cellKpiSize)
@@ -994,8 +1033,8 @@ func (c Control) xAppStartCB(d interface{}) {
                                 cellSlice = append(cellSlice, C.GoString(v))
                         }
 			ranCellKpi[nb.InventoryName]=cellSlice
-			fmt.Println("len of ranCellKpi= ",len(ranCellKpi))
-                        fmt.Println("ranCellKpi map = ", ranCellKpi)
+			//fmt.Println("len of ranCellKpi= ",len(ranCellKpi))
+                        //fmt.Println("ranCellKpi map = ", ranCellKpi)
 			/*
 			counter = 0
         		for i := 0; i < len(resp.Gnb.NodeConfigs); i++ {
@@ -1056,9 +1095,6 @@ func (c Control) xAppStartCB(d interface{}) {
                                 Glob_cell_Plmn[response2.Cellids[i]]=response2.PlmnIds[i]
                         }
 
-			fmt.Println("len of Glob_cell_Plmn= ",len(Glob_cell_Plmn))
-        		fmt.Println("Glob_cell_Plmn map = ", Glob_cell_Plmn)
-
 
 			//C.freeMemorydRanCellUeKpi(result)
 
@@ -1067,7 +1103,14 @@ func (c Control) xAppStartCB(d interface{}) {
 
         }
 
-
+	for {
+		time.Sleep(5 * time.Second)
+		if xapp.IsRegistered() {
+			xapp.Logger.Info("App registration is done, ready to send subscription request.")
+			break
+		}
+		xapp.Logger.Debug("App registration is not done yet, sleep 5s and check again")
+	}
 	// Send subscription request to connected NodeB
 	for _, nb := range nbList {
 		if nb.ConnectionStatus == 1 {
@@ -1077,8 +1120,16 @@ func (c Control) xAppStartCB(d interface{}) {
 		}
 
 	}
-	fmt.Println("len of Glob_Ran_cell= ",len(Glob_Ran_cell))
-	fmt.Println("Glob_Ran_cell map = ", Glob_Ran_cell)
+
+	                fmt.Println("len of ranUeKpi= ",len(ranUeKpi))
+                        fmt.Println("ranUeKpi map = ", ranUeKpi)
+
+                         fmt.Println("len of ranCellKpi= ",len(ranCellKpi))
+                        fmt.Println("ranCellKpi map = ", ranCellKpi)
+
+                        fmt.Println("len of Glob_cell_Plmn= ",len(Glob_cell_Plmn))
+                        fmt.Println("Glob_cell_Plmn map = ", Glob_cell_Plmn)
+
 
 	go c.controlLoop()
 	//go c.queryUEReports()

@@ -101,7 +101,7 @@ func main() {
                         message := string(base64Text[:nl])
 
        cString2 := C.CString(message)
-       fmt.Println("Ponga server = ",message)
+       fmt.Println("server = ",message)
        defer C.free(unsafe.Pointer(cString2)) // Free the allocated C string when done
        result2:=C.decodeF1apGetCellIds(cString2)
        cellList:=make([]string, result2.size)

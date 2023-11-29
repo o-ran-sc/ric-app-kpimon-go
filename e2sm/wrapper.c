@@ -227,7 +227,7 @@ struct encode_act_Def_result encode_action_Definition(const char *hex_values, in
         }
         printf("\n");
         printf("measName format 3\n");
-        for(int i=0;i<sz1;i++){
+        for(int i=0;i<sz3;i++){
                 printf("%s, ",name_format3[i]);
         }
 
