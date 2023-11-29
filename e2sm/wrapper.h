@@ -17,7 +17,8 @@
 #include <PLMNIdentity.h>
 #include <E2SM-KPM-IndicationHeader.h>
 #include <E2SM-KPM-IndicationHeader-Format1.h>
-#include <GlobalNGRANNodeID.h>
+//#include <GlobalNGRANNodeID.h>
+#include<GlobalRANNodeID.h>
 #include <GlobalGNB-ID.h>
 #include <GlobalenGNB-ID.h>
 #include <GlobalNgENB-ID.h>
@@ -64,7 +65,7 @@
 #include <PLMNIdentity.h>
 #include <E2SM-KPM-IndicationHeader.h>
 #include <E2SM-KPM-IndicationHeader-Format1.h>
-#include <GlobalNGRANNodeID.h>
+//#include <GlobalNGRANNodeID.h>
 #include <GlobalGNB-ID.h>
 #include <GlobalenGNB-ID.h>
 #include <GlobalNgENB-ID.h>
@@ -116,6 +117,8 @@ ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, 
 //
 
 ranCellUeKpi_t buildRanCellUeKpi(const char *hex_values);
+
+void freeMemorydRanCellUeKpi(ranCellUeKpi_t res);
 
 struct encode_act_Def_result encode_action_Definition(const char *hex_values, int determine);
 

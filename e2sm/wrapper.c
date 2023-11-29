@@ -52,7 +52,7 @@ ranCellUeKpi_t buildRanCellUeKpi(const char *hex_values){
         {
                 printf( "[INFO] E2SM KPM RAN Function Description decode successfull rval.code = %d \n",rval.code);
 
-                asn_fprint(stdout, &asn_DEF_E2SM_KPM_RANfunction_Description, e2smKpmRanFunctDescrip);
+                //asn_fprint(stdout, &asn_DEF_E2SM_KPM_RANfunction_Description, e2smKpmRanFunctDescrip);
 
                 for(int i=0; i< e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.count; i++){
 
@@ -168,7 +168,7 @@ struct encode_act_Def_result encode_action_Definition(const char *hex_values, in
         {
                 printf( "[INFO] E2SM KPM RAN Function Description decode successfull rval.code = %d \n",rval.code);
 
-                asn_fprint(stdout, &asn_DEF_E2SM_KPM_RANfunction_Description, e2smKpmRanFunctDescrip);
+                //asn_fprint(stdout, &asn_DEF_E2SM_KPM_RANfunction_Description, e2smKpmRanFunctDescrip);
 
                 for(int i=0; i< e2smKpmRanFunctDescrip->ric_ReportStyle_List->list.count; i++){
 
@@ -300,6 +300,7 @@ struct encode_act_Def_result encode_action_Definition(const char *hex_values, in
 
 
         // Don't forget to free the allocated memory when done
+	/*
         free(hex_buffer);
 	
 	free(id_format1);
@@ -313,6 +314,7 @@ struct encode_act_Def_result encode_action_Definition(const char *hex_values, in
 	for(int i=0; i<sz3;i++){
 		free(name_format3[i]);
 	}
+	*/
 	free(name_format3);
 	switch(determine){
 		case 1:
@@ -458,7 +460,7 @@ size_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, siz
         }
         else {
                 fprintf(stderr, "successfully\n");
-                xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
+               //xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
                 /*
                 FILE *fp = fopen("sandeep.bin", "wb");
 
@@ -599,7 +601,7 @@ size_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_
         }
         else {
                 fprintf(stderr, "successfully\n");
-                xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
+                //xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
                 /*
                 FILE *fp = fopen("sandeep.bin", "wb");
 
@@ -624,45 +626,6 @@ size_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_
         }
 }
 
-ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, size_t event_trigger_count, long *RT_periods) {
-	E2SM_KPM_EventTriggerDefinition_t *eventTriggerDef = (E2SM_KPM_EventTriggerDefinition_t *)calloc(1, sizeof(E2SM_KPM_EventTriggerDefinition_t));
-	if(!eventTriggerDef) {
-		fprintf(stderr, "Alloc EventTriggerDefinition failed\n");
-		return -1;
-	}
-
-	E2SM_KPM_EventTriggerDefinition_Format1_t *innerDef = (E2SM_KPM_EventTriggerDefinition_Format1_t *)calloc(1, sizeof(E2SM_KPM_EventTriggerDefinition_Format1_t));
-	if(!innerDef) {
-		fprintf(stderr, "alloc EventTriggerDefinition Format1 failed\n");
-		ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTriggerDef);
-		return -1;
-	}
-
-	eventTriggerDef->eventDefinition_formats.present = E2SM_KPM_EventTriggerDefinition__eventDefinition_formats_PR_eventDefinition_Format1;
-	eventTriggerDef->eventDefinition_formats.choice.eventDefinition_Format1 = innerDef;
-
-	// struct E2SM_KPM_EventTriggerDefinition_Format1__policyTest_List *policyTestList = (struct E2SM_KPM_EventTriggerDefinition_Format1__policyTest_List *)calloc(1, sizeof(struct E2SM_KPM_EventTriggerDefinition_Format1__policyTest_List));
-	// innerDef->policyTest_List = policyTestList;
-	
-	// int index = 0;
-	// while(index < event_trigger_count) {
-	// 	Trigger_ConditionIE_Item *triggerCondition = (Trigger_ConditionIE_Item *)calloc(1, sizeof(Trigger_ConditionIE_Item));
-	// 	assert(triggerCondition != 0);
-	// 	triggerCondition->report_Period_IE = RT_periods[index];
-	// 	ASN_SEQUENCE_ADD(&policyTestList->list, triggerCondition);
-	// 	index++;
-	// }
-
-	asn_enc_rval_t encode_result;
-    encode_result = uper_encode_to_buffer(&asn_DEF_E2SM_KPM_EventTriggerDefinition, NULL, eventTriggerDef, buffer, buf_size);
-    ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTriggerDef);
-    if(encode_result.encoded == -1) {
-        fprintf(stderr, "Cannot encode %s: %s\n", encode_result.failed_type->name, strerror(errno));
-        return -1;
-    } else {
-	    return encode_result.encoded;
-	}
-}
 size_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, size_t *buf_size, char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod) {
         E2SM_KPM_ActionDefinition_t *actionDef = (E2SM_KPM_ActionDefinition_t *)calloc(1, sizeof(E2SM_KPM_ActionDefinition_t));
         if (!actionDef) {
@@ -750,7 +713,7 @@ size_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, siz
         else {
                 fprintf(stderr, "successfully\n");
 
-                xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
+                //xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
                 /*
                 FILE *fp = fopen("sandeep.bin", "wb");
 
@@ -858,7 +821,7 @@ size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_
         }
         else {
                 fprintf(stderr, "successfully\n");
-                xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
+                //xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
                 /*
                 FILE *fp = fopen("sandeep.bin", "wb");
 
@@ -879,6 +842,45 @@ size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_
                          fprintf(stderr, "successfull asn_fprint\n");
                 */
                 return encode_result.encoded;
+        }
+}
+ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, size_t event_trigger_count, long *RT_periods) {
+        E2SM_KPM_EventTriggerDefinition_t *eventTriggerDef = (E2SM_KPM_EventTriggerDefinition_t *)calloc(1, sizeof(E2SM_KPM_EventTriggerDefinition_t));
+        if(!eventTriggerDef) {
+                fprintf(stderr, "Alloc EventTriggerDefinition failed\n");
+                return -1;
+        }
+
+        E2SM_KPM_EventTriggerDefinition_Format1_t *innerDef = (E2SM_KPM_EventTriggerDefinition_Format1_t *)calloc(1, sizeof(E2SM_KPM_EventTriggerDefinition_Format1_t));
+        if(!innerDef) {
+                fprintf(stderr, "alloc EventTriggerDefinition Format1 failed\n");
+                ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTriggerDef);
+                return -1;
+        }
+
+        eventTriggerDef->eventDefinition_formats.present = E2SM_KPM_EventTriggerDefinition__eventDefinition_formats_PR_eventDefinition_Format1;
+        eventTriggerDef->eventDefinition_formats.choice.eventDefinition_Format1 = innerDef;
+
+        // struct E2SM_KPM_EventTriggerDefinition_Format1__policyTest_List *policyTestList = (struct E2SM_KPM_EventTriggerDefinition_Format1__policyTest_List *)calloc(1, sizeof(struct E2SM_KPM_EventTriggerDefinition_Format1__policyTest_List));
+        // innerDef->policyTest_List = policyTestList;
+
+        // int index = 0;
+        // while(index < event_trigger_count) {
+        //      Trigger_ConditionIE_Item *triggerCondition = (Trigger_ConditionIE_Item *)calloc(1, sizeof(Trigger_ConditionIE_Item));
+        //      assert(triggerCondition != 0);
+        //      triggerCondition->report_Period_IE = RT_periods[index];
+        //      ASN_SEQUENCE_ADD(&policyTestList->list, triggerCondition);
+        //      index++;
+        // }
+
+        asn_enc_rval_t encode_result;
+    encode_result = uper_encode_to_buffer(&asn_DEF_E2SM_KPM_EventTriggerDefinition, NULL, eventTriggerDef, buffer, buf_size);
+    ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTriggerDef);
+    if(encode_result.encoded == -1) {
+        fprintf(stderr, "Cannot encode %s: %s\n", encode_result.failed_type->name, strerror(errno));
+        return -1;
+    } else {
+            return encode_result.encoded;
         }
 }
 

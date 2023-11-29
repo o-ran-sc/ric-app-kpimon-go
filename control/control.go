@@ -1,8 +1,8 @@
 package control
 /*
 #include <e2sm/wrapper.h>
-#cgo LDFLAGS: -le2smwrapper -lm
-#cgo CFLAGS: -I/usr/local/include/e2sm
+#cgo LDFLAGS: -lm  -le2smwrapper
+#cgo CFLAGS:  -I/usr/local/include/e2sm
 */
 import "C"
 import (
@@ -17,8 +17,8 @@ import (
 //	"bytes"
 //	"encoding/binary"
 	"strconv"
-	"encoding/base64"
-	"strings"
+	//"encoding/base64"
+	//"strings"
 	"fmt"
 	"reflect"
 	"errors"
@@ -44,6 +44,8 @@ var (
 	clientEndpoint       = clientmodel.SubscriptionParamsClientEndpoint{Host: "service-ricxapp-kpimon-go-http.ricxapp", HTTPPort: &hPort, RMRPort: &rPort}
 )
 var Glob_cell = make(map[string]bool)
+var Glob_Ran_cell = make(map[string][]string)
+var Glob_cell_Plmn = make(map[string]string)
 var ranUeKpi = make(map[string][]string)
 var ranCellKpi =  make(map[string][]string)
 func (c Control) Consume(msg *xapp.RMRParams) error {
@@ -187,7 +189,7 @@ func encode_action_format1(plmn string, cellid string, meid string) clientmodel.
 	result:=C.encode_action_Definition(cString, C.int(determine))
 	
 	for i := 0; i < int(result.length); i++ {
-		value := int64(*(*int64)(unsafe.Pointer(uintptr(unsafe.Pointer(result.array)) + uintptr(i*8))))
+		value := int64(*(*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(result.array)) + uintptr(i*4))))
 		format1 = append(format1, value)
    	}
 	format1 = append(format1, lol1...) //appending plmn
@@ -244,7 +246,7 @@ func encode_action_format3(meid string) clientmodel.ActionDefinition {
 	
 	result:=C.encode_action_Definition(cString, C.int(determine))
         for i := 0; i < int(result.length); i++ {
-                value := int64(*(*int64)(unsafe.Pointer(uintptr(unsafe.Pointer(result.array)) + uintptr(i*8))))
+		value := int64(*(*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(result.array)) + uintptr(i*4))))
 		format3 = append(format3, value)
 
         }
@@ -255,6 +257,7 @@ func encode_action_format3(meid string) clientmodel.ActionDefinition {
 }
 func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 	var l clientmodel.ActionsToBeSetup
+	/*
 	link:="http://service-ricplt-e2mgr-http.ricplt.svc.cluster.local:3800/v1/nodeb/"
 	link=link+meid
 	tmpr,err := http.Get(link)
@@ -306,18 +309,34 @@ func encode_actionsToBeSetup(meid string) clientmodel.ActionsToBeSetup {
 			fmt.Println(message[i : i+10])
 		}
 	}
+	*/
 
 	var n int64 = 1
+	cells:=Glob_Ran_cell[meid]
+	fmt.Println("len of Tonga cells= ",len(cells))
+        fmt.Println("Tonga cells = ", cells)
+	fmt.Println("Tonga  = ", Glob_Ran_cell)
+
+	var tempCells []string
+	for _, ele:=range cells{
+		if ele!=""{
+			tempCells =append(tempCells,ele)
+		}
+	}
+	fmt.Println("len of Tonga tmep cells= ",len(tempCells))
+        fmt.Println("Tonga temp cells = ", tempCells)
+
 	//var ue int64 = 1 //get no of ue connected to du(if required)
 
 	//for action def 1
-	for n <= int64(len(cells)) {
+	for n <= int64(len(tempCells)) {
+		//fix double length issue/empty cell sting  in Glob_Ran_cell map
 		var tmp int64 = n
 		var lol *int64 = &tmp
 		s := clientmodel.ActionToBeSetup{
 			ActionID:         lol,
 			ActionType:       &actionType,
-			ActionDefinition: encode_action_format1(resp.GlobalNbId.PlmnId, cells[n-1],meid),
+			ActionDefinition: encode_action_format1(Glob_cell_Plmn[tempCells[n-1]], tempCells[n-1],meid),
 			SubsequentAction:  &clientmodel.SubsequentAction{
 				SubsequentActionType: &subsequentActionType,
 				TimeToWait:           &timeToWait,
@@ -965,13 +984,80 @@ func (c Control) xAppStartCB(d interface{}) {
     				ueSlice = append(ueSlice, C.GoString(v))
 			}
 			ranUeKpi[nb.InventoryName]=ueSlice
+			fmt.Println("len of ranUeKpi= ",len(ranUeKpi))
+        		fmt.Println("ranUeKpi map = ", ranUeKpi)
+
 
 			cellSlice := make([]string, result.cellKpiSize)
 
                         for _, v := range unsafe.Slice(result.cellKpi, result.cellKpiSize) {
                                 cellSlice = append(cellSlice, C.GoString(v))
                         }
-                        ranCellKpi[nb.InventoryName]=cellSlice
+			ranCellKpi[nb.InventoryName]=cellSlice
+			fmt.Println("len of ranCellKpi= ",len(ranCellKpi))
+                        fmt.Println("ranCellKpi map = ", ranCellKpi)
+			/*
+			counter = 0
+        		for i := 0; i < len(resp.Gnb.NodeConfigs); i++ {
+                		if resp.Gnb.NodeConfigs[i].E2nodeComponentInterfaceType == "f1" {
+                        		counter = i
+                        		break
+                		}
+        		}
+			
+	
+        		tm := resp.Gnb.NodeConfigs[counter].E2nodeComponentRequestPart
+       			base64Text := make([]byte, base64.StdEncoding.DecodedLen(len(tm)))
+        		nl, _ := base64.StdEncoding.Decode(base64Text, []byte(tm))
+        		message := string(base64Text[:nl])
+			*/
+			/*
+			cString2 := C.CString(message)
+			fmt.Println("Ponga = ",tm)
+			fmt.Println("Ponga = ",message)
+			defer C.free(unsafe.Pointer(cString2)) // Free the allocated C string when done
+			result2:=C.decodeF1apGetCellIds(cString2)
+			cellList:=make([]string, result2.size)
+			for _, v := range unsafe.Slice(result2.cellids, result2.size) {
+                                cellList = append(cellList, C.GoString(v))
+                        }
+			plmnList:=make([]string, result2.size)
+                        for _, v := range unsafe.Slice(result2.plmn, result2.size) {
+                                plmnList = append(plmnList, C.GoString(v))
+                        }
+
+			*/
+			/*
+			var f1ap *F1ap
+			fmt.Println("Ponga = ",tm)
+			cellList,plmnList:=f1ap.F1apGetCellIds(message)
+			Glob_Ran_cell[nb.InventoryName]=cellList
+			for i := 0; i < len(cellList); i++ {
+				Glob_cell_Plmn[cellList[i]]=plmnList[i]
+			}
+			*/
+			 response, err4 := http.Get("http://localhost:8090/getdata?gnbid="+nb.InventoryName)
+   if err4 != nil {
+       fmt.Println("Error:", err4)
+       panic(err4)
+   }
+   defer response.Body.Close()
+   
+   var response2 APIResponse
+   if err5 := json.NewDecoder(response.Body).Decode(&response2); err5 != nil {
+       fmt.Println("Error decoding response:", err5)
+        panic(err5)
+   }
+   
+   fmt.Printf("f1apSever Response: %+v\n", response2)
+   
+   			Glob_Ran_cell[nb.InventoryName]=response2.Cellids
+			for i := 0; i < len(response2.Cellids); i++ {
+                                Glob_cell_Plmn[response2.Cellids[i]]=response2.PlmnIds[i]
+                        }
+
+			fmt.Println("len of Glob_cell_Plmn= ",len(Glob_cell_Plmn))
+        		fmt.Println("Glob_cell_Plmn map = ", Glob_cell_Plmn)
 
 
 			//C.freeMemorydRanCellUeKpi(result)
@@ -991,8 +1077,8 @@ func (c Control) xAppStartCB(d interface{}) {
 		}
 
 	}
-	fmt.Println("len of Glob_cell= ",len(Glob_cell))
-	fmt.Println("Glob_cell map = ", Glob_cell)
+	fmt.Println("len of Glob_Ran_cell= ",len(Glob_Ran_cell))
+	fmt.Println("Glob_Ran_cell map = ", Glob_Ran_cell)
 
 	go c.controlLoop()
 	//go c.queryUEReports()

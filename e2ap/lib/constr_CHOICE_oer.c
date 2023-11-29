@@ -3,11 +3,8 @@
  * All rights reserved.
  * Redistribution and modifications are permitted subject to BSD license.
  */
-#ifndef ASN_DISABLE_OER_SUPPORT
-
 #include <asn_internal.h>
 #include <constr_CHOICE.h>
-#include <errno.h>
 
 /*
  * Return a standardized complex structure.
@@ -109,7 +106,7 @@ oer_fetch_tag(const void *ptr, size_t size, ber_tlv_tag_t *tag_r) {
              */
             if(val >> ((8 * sizeof(val)) - 9)) {
                 /*
-                 * We would not be able to accomodate
+                 * We would not be able to accommodate
                  * any more tag bits.
                  */
                 return -1;
@@ -376,5 +373,3 @@ CHOICE_encode_oer(const asn_TYPE_descriptor_t *td,
 
     return er;
 }
-
-#endif  /* ASN_DISABLE_OER_SUPPORT */

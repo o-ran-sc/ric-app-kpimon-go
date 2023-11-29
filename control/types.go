@@ -1,6 +1,10 @@
 package control
 
 const MAX_SUBSCRIPTION_ATTEMPTS = 100
+type APIResponse struct {
+Cellids []string `json:"Cellids"`
+PlmnIds  []string `json:"PlmnIds"`
+}
 type RanFunctions struct {
 	RanFunctionId         int
 	RanFunctionDefinition string

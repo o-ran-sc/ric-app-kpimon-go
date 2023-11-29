@@ -1,5 +1,5 @@
-#ifndef	_WRAPPER_H_
-#define	_WRAPPER_H_
+#ifndef	_WRAPPER_E2AP_H_
+#define	_WRAPPER_E2AP_H_
 #include <stdio.h>
 #include <stdlib.h>
 #include "RICsubscriptionRequest.h"
@@ -16,7 +16,17 @@
 #include "ProtocolIE-Field.h"
 #include "RICactionDefinition.h"
 #include "RICsubsequentAction.h"
-#include "CauseRIC.h"
+#include "CauseE2node.h"
+#include "Cause.h"
+#include "CauseMisc.h"
+#include "CauseProtocol.h"
+#include "CauseRICrequest.h"
+#include "CauseRICservice.h"
+#include "CauseTransport.h"
+#include "RICsubscription-List-withCause.h"
+#include "RICsubscription-withCause-Item.h"
+
+//#include "CauseRIC.h"
 
 typedef struct RICindicationMessage {
 	long requestorID;
@@ -101,4 +111,4 @@ RICindicationMsg* e2ap_decode_ric_indication_message(void *buffer, size_t buf_si
 RICindicationMsg* e2ap_decode_ric_indication_m();
 void e2ap_free_decoded_ric_indication_message(RICindicationMsg* msg);
 
-#endif /* _WRAPPER_H_ */
+#endif /* _WRAPPER_E2AP_H_ */
