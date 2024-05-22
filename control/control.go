@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"time"
 	"unsafe"
+	"strings"
 
 	"gerrit.o-ran-sc.org/r/ric-plt/xapp-frame/pkg/clientmodel"
 	"gerrit.o-ran-sc.org/r/ric-plt/xapp-frame/pkg/xapp"
@@ -67,9 +68,9 @@ func (c Control) Consume(msg *xapp.RMRParams) error {
 }
 
 func NewControl() Control {
-	xapp.Logger.Info("In new control\n")
+	xapp.Logger.Info("In new control")
 	create_db()
-	xapp.Logger.Info("returning control\n")
+	xapp.Logger.Info("returning control")
 	return Control{
 		make(chan *xapp.RMRParams),
 		influxdb2.NewClient("http://ricplt-influxdb.ricplt:8086", "client"),
@@ -77,12 +78,12 @@ func NewControl() Control {
 }
 func create_db() {
 	//Create a database named kpimon in influxDB
-	xapp.Logger.Info("In create_db\n")
+	xapp.Logger.Info("In create_db")
 	_, err := http.Post("http://ricplt-influxdb.ricplt:8086/query?q=create%20database%20kpimon", "", nil)
 	if err != nil {
 		xapp.Logger.Error("Create database failed!")
 	}
-	xapp.Logger.Info("exiting create_db\n")
+	xapp.Logger.Info("exiting create_db")
 }
 
 func (c Control) getEnbList() ([]*xapp.RNIBNbIdentity, error) {
@@ -92,10 +93,12 @@ func (c Control) getEnbList() ([]*xapp.RNIBNbIdentity, error) {
 		return nil, err
 	}
 
-	xapp.Logger.Info("List for connected eNBs :")
-	for index, enb := range enbs {
-		xapp.Logger.Info("%d. enbid: %s", index+1, enb.InventoryName)
+	var connected_enb_names []string
+	for _, enb := range enbs {
+		connected_enb_names = append(connected_enb_names, enb.InventoryName)
 	}
+	xapp.Logger.Info("List for connected eNBs: [%s]", strings.Join(connected_enb_names, ", "))
+	
 	return enbs, nil
 }
 
@@ -106,10 +109,13 @@ func (c *Control) getGnbList() ([]*xapp.RNIBNbIdentity, error) {
 		xapp.Logger.Error("err: %s", err)
 		return nil, err
 	}
-	xapp.Logger.Info("List of connected gNBs :")
-	for index, gnb := range gnbs {
-		xapp.Logger.Info("%d. gnbid : %s", index+1, gnb.InventoryName)
+
+	var connected_gnb_names []string
+	for _, gnb := range gnbs {
+		connected_gnb_names = append(connected_gnb_names, gnb.InventoryName)
 	}
+	xapp.Logger.Info("List for connected gNBs: [%s]", strings.Join(connected_gnb_names, ", "))
+
 	return gnbs, nil
 }
 

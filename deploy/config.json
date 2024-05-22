@@ -1,6 +1,6 @@
 {
   "xapp_name": "kpimon-go",
-  "version": "2.0.1",
+  "version": "2.0.2-alpha",
   "containers": [
     {
       "name": "kpimon-go",
@@ -11,6 +11,22 @@
       }
     }
   ],
+  "livenessProbe": {
+    "httpGet": {
+        "path": "ric/v1/health/alive",
+        "port": 8080
+    },
+    "initialDelaySeconds": 5,
+    "periodSeconds": 15
+  },
+  "readinessProbe": {
+      "httpGet": {
+          "path": "ric/v1/health/ready",
+          "port": 8080
+      },
+      "initialDelaySeconds": 5,
+      "periodSeconds": 15
+  },
   "messaging": {
     "ports": [
       {
